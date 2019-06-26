@@ -72,6 +72,7 @@ def merge_study_groups(study):
 
 
 def print_rule_prompt():
+    ''' Print the prompt giving the user their options for creating a rule'''
     print('-' * 80)
     print('Rule options:')
     print('case:\t\tAll samples containing this string are cases')
@@ -85,6 +86,19 @@ def print_rule_prompt():
 
 
 def get_study_info_as_xml(groups):
+    ''' Use a list of sample ids to get information about each sample from the SRA
+
+    Arguments
+    ---------
+    groups - dict
+        The MetaSRA info about all the samples for a given study
+
+    Returns
+    -------
+    root: xml.etree.ElementTree
+        An XML object containing the sample information returned by Entrez
+
+    '''
     ids = []
     for sample in groups:
         # Get the SRX (experiment) id
@@ -118,7 +132,7 @@ def get_study_info_as_xml(groups):
     sys.exit(1)
 
 def apply_rule(rule, root, category):
-    ''' Add an category to sample denoting whether they are cases or controls based on a rule
+    ''' Add a category to sample denoting whether they are cases or controls based on a rule
 
     Arguments
     ---------
@@ -127,7 +141,7 @@ def apply_rule(rule, root, category):
     root: xml.etree.ElementTree
         An XML object containing the sample information returned by Entrez in get_study_info_as_xml
     category: str
-        The label to be added to the matching BioSample objects in the tree as an category
+        The label to be added to the matching BioSample objects in the tree as a category
 
     Returns
     -------
