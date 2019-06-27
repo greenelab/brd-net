@@ -34,15 +34,15 @@ def print_study_options(study):
         The name of the current study
 
     '''
-    print('-' * 80)
+    sys.stderr.write('{}\n'.format('-' * 80))
 
     # MetaSRA doens't like unicode quotes for some reason, so we'll strip unicode characters
     study_name = strip_unicode(study['title'])
-    print('Study Name:\t{}'.format(study_name))
-    print('Options:\nvalid\t\t(This study looks like it has human gene expression data)')
-    print('invalid\t\t(This study does not appear to have human gene expression data)')
-    print('exit\t\t(Quit annotating and save progress)')
-    print('-' * 80)
+    sys.stderr.write('Study Name:\t{}\n'.format(study_name))
+    sys.stderr.write('Options:\nvalid\t\t(This study looks like it has human gene expression data)\n')
+    sys.stderr.write('invalid\t\t(This study does not appear to have human gene expression data)\n')
+    sys.stderr.write('exit\t\t(Quit annotating and save progress)\n')
+    sys.stderr.write('{}\n'.format('-' * 80))
 
 
 def merge_study_groups(study):
@@ -73,16 +73,16 @@ def merge_study_groups(study):
 
 def print_rule_prompt():
     ''' Print the prompt giving the user their options for creating a rule'''
-    print('-' * 80)
-    print('Rule options:')
-    print('case:\t\tAll samples containing this string are cases')
-    print('control:\tAll samples containing this string are controls')
-    print('invalid:\tAll samples containing this string are invalid (not RNA, not human, etc)')
-    print('study_info:\tPrint information about the study so it can be looked over in SRA')
-    print('done:\t\tStop writing rules for the study. All samples not assigned to case or control '
-          'will be saved as invalid')
-    print('restart:\tClear all previously written rules for this study and start over')
-    print('-' * 80)
+    sys.stderr.write('{}\n'.format('-' * 80))
+    sys.stderr.write('Rule options:\n')
+    sys.stderr.write('case:\t\tAll samples containing this string are cases\n')
+    sys.stderr.write('control:\tAll samples containing this string are controls\n')
+    sys.stderr.write('invalid:\tAll samples containing this string are invalid (not RNA, not human, etc)\n')
+    sys.stderr.write('study_info:\tPrint information about the study so it can be looked over in SRA\n')
+    sys.stderr.write('done:\t\tStop writing rules for the study. All samples not assigned to case or control '
+          'will be saved as invalid\n')
+    sys.stderr.write('restart:\tClear all previously written rules for this study and start over\n')
+    sys.stderr.write('{}\n'.format('-' * 80))
 
 
 def get_study_info_as_xml(groups):
@@ -107,7 +107,7 @@ def get_study_info_as_xml(groups):
     ids = ','.join(ids)
 
     # Get information about all the samples in the experiment
-    print('Querying Entrez...')
+    sys.stderr.write('Querying Entrez...\n')
 
     attempts = 0
     while attempts < 10:
@@ -118,7 +118,7 @@ def get_study_info_as_xml(groups):
             result.raise_for_status()
 
             # Parse the XML returned from Entrez
-            print('Parsing XML...')
+            sys.stderr.write('Parsing XML...\n')
             out = open('test.txt', 'w')
             out.write(strip_unicode(result.text))
             root = ET.fromstring(strip_unicode(result.text))
@@ -126,9 +126,9 @@ def get_study_info_as_xml(groups):
             return root
         except requests.exceptions.HTTPError:
             attempts += 1
-            print('Downloading dataset failed {} times'.format(attempts))
-            sleep(1)
-    print('Too many download failures, exiting...')
+            sys.stderr.write('Downloading dataset failed {} times\n'.format(attempts))
+            sleep(2 * attempts)
+    sys.stderr.write('Too many download failures, exiting...\n')
     sys.exit(1)
 
 def apply_rule(rule, root, category):
@@ -250,7 +250,7 @@ def categorize_samples(root):
             elif option == 'study_info':
                 study = root.find('.//EXPERIMENT_PACKAGE/STUDY')
                 study_id = study.get('accession')
-                print('Study Accession: {}'.format(study_id))
+                sys.stderr.write('Study Accession: {}\n'.format(study_id))
 
     return root, rules
 
@@ -306,28 +306,28 @@ def print_sample_names(root, category):
 
             # If we can't find the name, the sample is categorized as invalid
             if name is not None:
-                print(name.text)
+                sys.stderr.write(name.text + '\n')
 
 
 def print_sample_header(root):
     '''Print which samples have been assigned to which categories'''
-    print('-' * 80)
-    print('Currently unassigned or invalid samples:')
-    print('-' * 80)
+    sys.stderr.write('{}\n'.format('-' * 80))
+    sys.stderr.write('Currently unassigned or invalid samples:\n')
+    sys.stderr.write('{}\n'.format('-' * 80))
     print_sample_names(root, 'invalid')
-    print('\n')
+    sys.stderr.write('\n\n')
 
-    print('-' * 80)
-    print('Cases:')
-    print('-' * 80)
+    sys.stderr.write('{}\n'.format('-' * 80))
+    sys.stderr.write('Cases:\n')
+    sys.stderr.write('{}\n'.format('-' * 80))
     print_sample_names(root, 'case')
-    print('\n')
+    sys.stderr.write('\n\n')
 
-    print('-' * 80)
-    print('Controls:')
-    print('-' * 80)
+    sys.stderr.write('{}\n'.format('-' * 80))
+    sys.stderr.write('Controls:\n')
+    sys.stderr.write('{}\n'.format('-' * 80))
     print_sample_names(root, 'control')
-    print('\n')
+    sys.stderr.write('\n\n')
 
 
 def save_progress(root, rules, results_out, rules_out):
@@ -352,8 +352,8 @@ def save_progress(root, rules, results_out, rules_out):
     tree.write(results_out)
 
     #rules_json = json.dumps(rules)
-    rules_file = open(rules_out, 'w')
-    json.dump(rules, rules_file)
+    with open(rules_out, 'w') as rules_file:
+        json.dump(rules, rules_file)
 
 
 def process_samples(args):
@@ -367,7 +367,7 @@ def process_samples(args):
     '''
     # TODO run on all samples using pagination (UBERON:0001062)
 
-    print('Querying metasra...')
+    sys.stderr.write('Querying metasra...\n')
 
 
     previously_seen_studies = set()
@@ -375,7 +375,6 @@ def process_samples(args):
     root = ET.Element("ProgramRun")
     rule_dict = {}
     if args.previous_xml is not None:
-        print('in conditional')
         tree = ET.parse(args.previous_xml)
         root = tree.getroot()
 
@@ -383,15 +382,11 @@ def process_samples(args):
         for study in studies:
             previously_seen_studies.add(study.get('study_id'))
     if args.previous_rules is not None:
-        rule_file = open(args.previous_rules)
-        rule_dict = json.load(rule_file)
-        print(rule_dict)
-        rule_file.close()
+        with open(args.previous_rules) as rule_file:
+            rule_dict = json.load(rule_file)
 
-    data = None
-    with urllib.request.urlopen('http://metasra.biostat.wisc.edu/api/v01/'
-        'samples.json?and=UBERON:0000178&sampletype=tissue') as url:
-        data = json.loads(url.read().decode())
+    data = requests.get('http://metasra.biostat.wisc.edu/api/v01/samples.json?'
+                        'and=UBERON:0000178&sampletype=tissue').json()
 
     studies = data['studies']
 
@@ -427,17 +422,17 @@ def process_samples(args):
                         save_progress(root, rule_dict, args.results_out, args.rules_out)
                         sys.exit('Save successful')
                     else:
-                        print('\n{} is not a valid option. Please try again'.format(option))
+                        sys.stderr.write('\n{} is not a valid option. Please try again\n'.format(option))
             except BaseException as e:
                 # If something fails, save the progress that we had so far
-                print('\n\nCaught following exception, saving progress before exiting:')
-                print(e)
+                sys.stderr.write('\n\nCaught following exception, saving progress before exiting:\n')
+                sys.stderr.write(str(e) + '\n')
                 
 
                 save_progress(root, rule_dict, args.results_out, args.rules_out)
                 raise
 
-    print('Annotation complete, saving results...')
+    sys.stderr.write('Annotation complete, saving results...\n')
     save_progress(root, rule_dict, args.results_out, args.rules_out)
 
 
