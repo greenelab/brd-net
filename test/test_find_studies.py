@@ -1,3 +1,4 @@
+from unittest import TestCase
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -6,14 +7,13 @@ from brdnet import find_studies
 
 
 group1 = {'samples': ['a']}
-group2 = {'samples': ['b']}
-group3 = [{'samples': ['c', 'd']}, {'samples': 'e'}]
+group2 = [{'samples': ['c', 'd']}, {'samples': 'e'}]
 
 study1_in = {'sampleGroups': [group1]}
 study1_expected = ['a']
 study2_in = {'sampleGroups': [{'samples': []}]}
 study2_expected = []
-study3_in = {'sampleGroups': group3}
+study3_in = {'sampleGroups': group2}
 study3_expected = ['c', 'd', 'e']
 @pytest.mark.parametrize('test_input,expected', [(study1_in, study1_expected),
                                                  (study2_in, study2_expected),
@@ -21,7 +21,9 @@ study3_expected = ['c', 'd', 'e']
                                                 ])
 def test_merge_study_groups(test_input, expected):
     merged_input = find_studies.merge_study_groups(test_input)
-    assert merged_input == expected
+
+    case = TestCase()
+    case.assertCountEqual(merged_input, expected)
 
 
 case = '<WRAPPER><EXPERIMENT_PACKAGE category="invalid"><SAMPLE><TITLE>Tumor</TITLE></SAMPLE></EXPERIMENT_PACKAGE></WRAPPER>'

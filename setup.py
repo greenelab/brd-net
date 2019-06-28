@@ -7,7 +7,7 @@ setup(
    version='1.0',
    description='Transfer Learning on Gene Expression Data',
    author='Ben Heil',
-   author_email='foomail@foo.com',
+   author_email='ben.jer.heil@gmail.com',
    packages=['brdnet'],
    install_requires=['requests'],
    tests_require=test_dependencies,
