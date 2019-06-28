@@ -119,8 +119,6 @@ def get_study_info_as_xml(groups):
 
             # Parse the XML returned from Entrez
             sys.stderr.write('Parsing XML...\n')
-            out = open('test.txt', 'w')
-            out.write(strip_unicode(result.text))
             root = ET.fromstring(strip_unicode(result.text))
 
             return root
