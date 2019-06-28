@@ -1,5 +1,7 @@
 from setuptools import setup
 
+test_dependencies = ['pytest']
+
 setup(
    name='brdnet',
    version='1.0',
@@ -8,5 +10,10 @@ setup(
    author_email='foomail@foo.com',
    packages=['brdnet'],
    install_requires=['requests'],
-   tests_require=['pytest'],
+   tests_require=test_dependencies,
+
+   extras_require={
+       'test': test_dependencies,
+   },
+    
 )
