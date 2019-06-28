@@ -13,7 +13,6 @@ import argparse
 import json
 import sys
 from time import sleep
-import urllib.request
 import xml.etree.ElementTree as ET
 
 import requests
@@ -47,10 +46,10 @@ def print_study_options(study):
 
 def merge_study_groups(study):
     '''Combine all study groups into a single group
-    
+
     metaSRA splits samples from a study into multiple groups based on their metadata.
     This function merges all the samples from a study back into one group
-    
+
     Arguments
     ---------
     study: dict
@@ -80,7 +79,7 @@ def print_rule_prompt():
     sys.stderr.write('invalid:\tAll samples containing this string are invalid (not RNA, not human, etc)\n')
     sys.stderr.write('study_info:\tPrint information about the study so it can be looked over in SRA\n')
     sys.stderr.write('done:\t\tStop writing rules for the study. All samples not assigned to case or control '
-          'will be saved as invalid\n')
+                     'will be saved as invalid\n')
     sys.stderr.write('restart:\tClear all previously written rules for this study and start over\n')
     sys.stderr.write('{}\n'.format('-' * 80))
 
@@ -129,6 +128,7 @@ def get_study_info_as_xml(groups):
     sys.stderr.write('Too many download failures, exiting...\n')
     sys.exit(1)
 
+
 def apply_rule(rule, root, category):
     ''' Add a category to sample denoting whether they are cases or controls based on a rule
 
@@ -148,14 +148,14 @@ def apply_rule(rule, root, category):
 
     Notes
     -----
-    apply_rule matches the rule against the the title string by determining whether rule is a 
+    apply_rule matches the rule against the the title string by determining whether rule is a
         (case_insensitive) substring of the title. For the example title 'RNA from Whole Blood'
         the rules 'RNA', 'whole blood', and 'RNA from Whole Blood' would match, but 'blood RNA'
         would not.
 
     '''
     samples = root.findall('.//EXPERIMENT_PACKAGE')
-    
+
     for sample in samples:
         title = sample.find('.//SAMPLE/TITLE').text.lower()
 
@@ -180,13 +180,12 @@ def set_all_samples_invalid(root):
 
     '''
     samples = root.findall('.//EXPERIMENT_PACKAGE')
-    
+
     for sample in samples:
         sample.set('category', 'invalid')
 
     return root
-    
-    
+
 
 def categorize_samples(root):
     '''Prompt the user for rules that divide the data into cases, controls, and other entries
@@ -206,7 +205,7 @@ def categorize_samples(root):
 
     # The samples are all invalid by default
     root = set_all_samples_invalid(root)
-    
+
     rules = []
     done_making_rules = False
 
@@ -328,17 +327,41 @@ def print_sample_header(root):
     sys.stderr.write('\n\n')
 
 
-def save_progress(root, rules, results_out, rules_out):
+def add_skip_to_tree(root, skip):
+    '''Store the information about the number of studies read so far into the tree
+
+    Arguments
+    ---------
+    root: xml.etree.ElementTree
+        A tree containing all the studies categorized so far
+    skip: int
+        The number of studies to skip when resuming
+
+    Returns
+    -------
+    root: xml.etree.ElementTree
+        The tree passed in, with skip added to the
+    '''
+    root.set('skip', str(skip))
+
+    return root
+
+
+def save_progress(root, rules, results_out, rules_out, skip):
     '''Save the program's output to a file
 
     Arguments
     ---------
-    tree: xml.etree.ElementTree
+    root: xml.etree.ElementTree
         A tree containing all the studies categorized so far
     rules: dict
         A dictionary containing the set of rules used to categorize each study
-    out_file: str
-        The path to save the files to
+    results_out: str
+        The file to save the resulting xml tree to
+    rules_out: str
+        The file to save the rules used to categorize the data to
+    skip: int
+        The number of studies to skip when resuming
 
     Notes
     -----
@@ -346,27 +369,24 @@ def save_progress(root, rules, results_out, rules_out):
     as <out_file>_rules.json
 
     '''
+    root = add_skip_to_tree(root, skip)
     tree = ET.ElementTree(root)
     tree.write(results_out)
 
-    #rules_json = json.dumps(rules)
     with open(rules_out, 'w') as rules_file:
         json.dump(rules, rules_file)
 
 
 def process_samples(args):
     '''Query metaSRA and separate samples based on case/control status
-    
+
     Arguments
     ---------
     args: namespace
         Args contains all the arguments passed in from the command line
 
     '''
-    # TODO run on all samples using pagination (UBERON:0001062)
-
     sys.stderr.write('Querying metasra...\n')
-
 
     previously_seen_studies = set()
 
@@ -383,55 +403,67 @@ def process_samples(args):
         with open(args.previous_rules) as rule_file:
             rule_dict = json.load(rule_file)
 
-    data = requests.get('http://metasra.biostat.wisc.edu/api/v01/samples.json?'
-                        'and=UBERON:0000178&sampletype=tissue').json()
+    skip = 0
+    done_reading_studies = False
+    while not done_reading_studies:
+        data = requests.get('http://metasra.biostat.wisc.edu/api/v01/samples.json?'
+                            'and=UBERON:0001062&sampletype=tissue&skip={}&limit=3'.format(skip)).json()
 
-    studies = data['studies']
+        if 'error' in data:
+            sys.stderr.write('Error" ' + data['error'] + '\n')
+            sys.exit(1)
 
-    for study_object in studies:
-        study = study_object['study']
+        studies = data['studies']
 
-        study_id = study['id']
+        study_count = len(studies)
+        if study_count == 0:
+            done_reading_studies = True
 
-        # Skip studies whose samples were categorized in a previous run
-        if study_id in previously_seen_studies:
-            continue
+        for study_object in studies:
+            study = study_object['study']
 
-        processed = False
+            study_id = study['id']
 
-        while not processed:
-            try:
-                print_study_options(study)
-                option = ''
-                while len(option) == 0:
-                    option = input('Input [valid/invalid/exit]: ').strip().lower()
+            # Skip studies whose samples were categorized in a previous run
+            if study_id in previously_seen_studies:
+                continue
 
-                    if option == 'valid':
-                        subtree, rules = process_valid_study(study_object)
-                        subtree.set('study_id', study_id)
+            processed = False
 
-                        root.append(subtree)
-                        rule_dict[study_id] = rules
-                        processed = True
-                    # If an entire study is irrelevant for some reason, we can just continue on
-                    elif option == 'invalid':
-                        processed = True
-                    elif option == 'exit':
-                        save_progress(root, rule_dict, args.results_out, args.rules_out)
-                        sys.exit('Save successful')
-                    else:
-                        sys.stderr.write('\n{} is not a valid option. Please try again\n'.format(option))
-            except BaseException as e:
-                # If something fails, save the progress that we had so far
-                sys.stderr.write('\n\nCaught following exception, saving progress before exiting:\n')
-                sys.stderr.write(str(e) + '\n')
-                
+            while not processed:
+                try:
+                    print_study_options(study)
+                    option = ''
+                    while len(option) == 0:
+                        option = input('Input [valid/invalid/exit]: ').strip().lower()
 
-                save_progress(root, rule_dict, args.results_out, args.rules_out)
-                raise
+                        if option == 'valid':
+                            subtree, rules = process_valid_study(study_object)
+                            subtree.set('study_id', study_id)
+
+                            root.append(subtree)
+                            rule_dict[study_id] = rules
+                            processed = True
+                        # If an entire study is irrelevant for some reason, we can just continue on
+                        elif option == 'invalid':
+                            processed = True
+                        elif option == 'exit':
+                            save_progress(root, rule_dict, args.results_out, args.rules_out, skip)
+                            sys.exit('Save successful')
+                        else:
+                            sys.stderr.write('\n{} is not a valid option. Please try again\n'.format(option))
+                except BaseException as e:
+                    # If something fails, save the progress that we had so far
+                    sys.stderr.write('\n\nCaught following exception, saving progress before exiting:\n')
+                    sys.stderr.write(str(e) + '\n')
+
+                    save_progress(root, rule_dict, args.results_out, args.rules_out, skip)
+                    raise
+
+        skip += study_count
 
     sys.stderr.write('Annotation complete, saving results...\n')
-    save_progress(root, rule_dict, args.results_out, args.rules_out)
+    save_progress(root, rule_dict, args.results_out, args.rules_out, skip)
 
 
 if __name__ == '__main__':
