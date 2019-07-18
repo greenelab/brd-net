@@ -14,4 +14,5 @@ dependencies:
     - conda-forge::r-dplyr=0.8.3
     - conda-forge::ipykernel=5.1.1
     - conda-forge::jupyter=1.0.0
+    - conda-forge::pytest==4.3.1
     - bioconda::bioconductor-recount=1.8.1
