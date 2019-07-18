@@ -1,10 +1,15 @@
 dist: xenial   # required for Python >= 3.7
 language: python
-python:
-  - "3.5"
-  - "3.6"
-  - "3.7"
+
+before_install:
+  - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
+    --output-document miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - source $HOME/miniconda/etc/profile.d/conda.sh
+  - conda config --set always_yes yes
 install:
+  - conda env create --quiet --file environment.yaml
+  - conda activate brdnet
   - pip install .[test]
 script:
   - py.test
