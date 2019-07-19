@@ -15,5 +15,4 @@ setup(
    extras_require={
        'test': test_dependencies,
    },
-    
 )
