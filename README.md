@@ -23,3 +23,8 @@ Once everything is installed, if you want to create a Jupyter Notebook kernel fr
 conda activate brdnet
 python -m ipykernel install --user --name brdnet --display-name "brdnet"
 ```
+
+### Note
+The environment file explicitly references the channel for each dependency.
+While this makes it easier to follow, older versions of Anaconda may not support this format.
+Development was done with conda version 4.7.5, so any version newer than that should work fine.
