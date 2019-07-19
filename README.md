@@ -17,7 +17,7 @@ conda env create --file environment.yaml
 conda activate brdnet
 ```
 
-Once everything is installed, if you want to add the environment as a jupyter notebook kernel, you can do so with
+Once everything is installed, if you want to create a Jupyter Notebook kernel from the environment, you can do so with
 
 ```sh
 conda activate brdnet
