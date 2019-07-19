@@ -9,11 +9,11 @@ The goal of this project is to
 
 ## Installation
 ---
-All the dependencies (for both R and python) are included in the file `environment.yaml`.
+All the dependencies (for both R and python) are included in the file `environment.yml`.
 Upon [installing Anaconda](https://docs.anaconda.com/anaconda/install/), the dependencies can be installed and loaded with the following command:
 
 ```sh
-conda env create --file environment.yaml
+conda env create --file environment.yml
 conda activate brdnet
 ```
 
