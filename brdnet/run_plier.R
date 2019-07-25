@@ -44,4 +44,4 @@ k.estimate <- PLIER::num.pc(row.normalized[common.genes, ])
 plier.results <- PLIER(row.normalized[common.genes, ], allPaths, k=k.estimate)
 
 # Save PLIER loadings
-write.table(plier.results$Z, file='../data/plier_Z.tsv', sep='\t', row.names=TRUE, col.names = NA)
+write.table(plier.results$Z, file='../data/plier_Z.tsv', sep='\t', row.names=TRUE)
