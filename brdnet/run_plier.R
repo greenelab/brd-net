@@ -22,7 +22,7 @@ set.seed(42)
 disease.df <- read.table(file.path(data.dir, 'plier_disease.tsv'), sep = '\t', stringsAsFactors = FALSE, header = TRUE)
 healthy.df <- read.table(file.path(data.dir, 'plier_healthy.tsv'), sep = '\t', stringsAsFactors = FALSE, header = TRUE)
 
-######MERGE BY ROWNAMES/INDEX########
+# Combine the disease and healthy dataframes
 all.df <- merge.data.frame(healthy.df, disease.df, by='row.names')
 
 row.names(all.df) <- all.df['Row.names'][[1]]
