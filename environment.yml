@@ -15,5 +15,5 @@ dependencies:
     - conda-forge::r-dplyr=0.8.3
     - conda-forge::requests=2.22.0
     - conda-forge::rpy2=2.9.4
-    - conda-forge::tensorflow-gpu==1.14.0
     - bioconda::bioconductor-recount=1.8.1
+    - tensorflow-gpu==1.14.0
