@@ -9,13 +9,23 @@ The goal of this project is to
 
 ## Installation
 ---
-All the dependencies (for both R and python) are included in the file `environment.yml`.
+Most of the dependencies (for both R and python) are included in the file `environment.yml`.
 Upon [installing Anaconda](https://docs.anaconda.com/anaconda/install/), the dependencies can be installed and loaded with the following command:
 
 ```sh
 conda env create --file environment.yml
 conda activate brdnet
 ```
+
+The one package that must be installed manually is PLIER, due to an issue in compatibility between Conda's tools for
+building packages from Github and the Bioconductor package repository.
+Fortunately, it can be installed easily by activating the brdnet conda environment, starting R, and running the commands below.
+
+```R
+library('devtools')
+install_github('wgmao/PLIER')
+```
+
 
 Once everything is installed, if you want to create a Jupyter Notebook kernel from the environment, you can do so with
 

@@ -6,13 +6,21 @@ channels:
 dependencies:
     - r::r=3.5.1
     - r::r-xml2=1.2.0
+    - conda-forge::r-rcolorbrewer=1.1.2
+    - conda-forge::r-gplots=3.0.1
+    - conda-forge::r-pheatmap=1.0.10
+    - conda-forge::r-glmnet=2.0.16
+    - conda-forge::r-rsvd=1.0.1
+    - conda-forge::r-dplyr=0.8.3
     - conda-forge::python=3.7
     - conda-forge::pandas=0.24.2
     - conda-forge::rpy2=2.9.4
     - conda-forge::requests=2.22.0
     - conda-forge::plotnine=0.5.1
-    - conda-forge::r-dplyr=0.8.3
+    - conda-forge::tqdm=4.32.2
     - conda-forge::ipykernel=5.1.1
     - conda-forge::jupyter=1.0.0
     - conda-forge::pytest==4.3.1
+    - conda-forge::r-devtools==2.1.0
     - bioconda::bioconductor-recount=1.8.1
+    - bioconda::bioconductor-qvalue=2.14.0
