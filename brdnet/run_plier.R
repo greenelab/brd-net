@@ -7,11 +7,13 @@ library('dplyr')
 library('biomaRt')
 
 # Github dependencies
+# Install PLIER if it isn't already present
+if (!require('PLIER',character.only = TRUE)) {
+	library('devtools')
+	install_github('wgmao/PLIER')
+}
 library('PLIER')
 
-data("canonicalPathways")
-data("bloodCellMarkersIRISDMAP")
-data("svmMarkers")
 
 data.dir <- '../data'
 
@@ -28,7 +30,11 @@ all.df <- merge.data.frame(healthy.df, disease.df, by='row.names')
 row.names(all.df) <- all.df['Row.names'][[1]]
 all.df['Row.names'] <- NULL
 
-allPaths <- combinePaths(bloodCellMarkersIRISDMAP, canonicalPathways, svmMarkers)
+data("canonicalPathways")
+data("bloodCellMarkersIRISDMAP")
+data("svmMarkers")
+# Combine three biological pathway datasets
+allPaths <- PLIER::combinePaths(bloodCellMarkersIRISDMAP, canonicalPathways, svmMarkers)
 
 all.matrix <- as.matrix(all.df)
 
