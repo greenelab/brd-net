@@ -3,8 +3,42 @@ import argparse
 
 import numpy
 import pandas
-#import tensorflow as tf
+import tensorflow as tf
 
+import models
+
+# Set random seeds
+numpy.random.seed(42)
+tf.compat.v1.set_random_seed(42)
+
+
+def get_model(model_name, logdir):
+    '''Retrieve a Model object from the models.py module by name
+
+    Arguments
+    ---------
+    model_name: string
+        The name of the model to retrieve
+    logdir: string
+        The path to the directory to save logs to
+
+    Returns
+    -------
+    model: Model
+        The model object with name model_name
+    '''
+    # This retrieves whatever has the name model_name in the models module
+    model = getattr(models, model_name)
+
+    modelInstance = model()
+
+    optimizer = tf.keras.optimizers.Adam(lr=1e-6)
+
+    modelInstance.compile(optimizer=optimizer,
+                          loss='binary_crossentropy',
+                          metrics=['accuracy'],
+                         )
+    return modelInstance
 
 
 def reduce_dimensionality(expression_df, Z_df):
@@ -31,8 +65,6 @@ def reduce_dimensionality(expression_df, Z_df):
     expression_matrix = expression_df.values
     Z_matrix = Z_df.values
 
-    print(Z_matrix.shape, expression_matrix.shape)
-
     reduced_matrix = numpy.matmul(expression_matrix.T, Z_matrix)
 
     return reduced_matrix
@@ -55,7 +87,7 @@ def load_data(args):
         gene expression
     '''
     Z_df = pandas.read_csv(args.Z_file_path, sep='\t')
-    print(Z_df.head())
+
     # Ensure the gene symbols are in alphabetical order
     Z_df = Z_df.sort_index()
 
@@ -68,13 +100,8 @@ def load_data(args):
     healthy_labels = numpy.zeros(healthy_df.shape[1])
     disease_labels = numpy.ones(disease_df.shape[1])
 
-    print(healthy_labels.shape)
-
     train_X = numpy.concatenate([healthy_matrix, disease_matrix])
     train_Y = numpy.concatenate([healthy_labels, disease_labels])
-
-    print(train_X.shape)
-    print(train_Y.shape)
 
     #TODO keep metadata with training data somehow
 
@@ -90,21 +117,20 @@ if __name__ == '__main__':
                                                   'expression')
     parser.add_argument('disease_file_path', help='Path to the tsv containing unhealthy '
                                                   'gene expression data')
+    parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
+                        default='../logs')
 
     args = parser.parse_args()
+    print(args.logdir)
+
 
     train_X, train_Y = load_data(args)
 
+    model = get_model('MLP', args.logdir)
 
-
-    # Create training data pipeline (1 sample/batch at a time? Split matrix?)
-    # Create validation set
-
-    # load model architecture
-
-    # Train model
-
-    # Evaluate model
-
-
-    # Where should final evaluation data come from?!?
+    model.fit(train_X, train_Y,
+            batch_size=16,
+            epochs=1000,
+            validation_split=.2,
+            callbacks=[tf.keras.callbacks.TensorBoard(log_dir='../logs')]
+            )
