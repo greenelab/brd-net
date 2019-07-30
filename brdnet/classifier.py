@@ -1,5 +1,7 @@
 
 import argparse
+import inspect
+import sys
 
 import numpy
 import pandas
@@ -10,6 +12,26 @@ import models
 # Set random seeds
 numpy.random.seed(42)
 tf.compat.v1.set_random_seed(42)
+
+
+def write_invalid_model_error(model_name):
+    '''Write the error message for an invalid model, model_name'''
+    sys.stderr.write('Error: models.py does not contain the model {}\n'.format(model_name))
+    sys.stderr.write('The available models are:\n')
+
+    # The only classes that should be in models.py are models, so we can
+    # iterate over all the classes in the module to get which models exist
+    for model in inspect.getmembers(models, inspect.isclass):
+        sys.stderr.write('{}\n'.format(model[0]))
+
+
+def validate_model_name(model_name):
+    '''Check whether the model name supplied by the user exists in models.py'''
+    try:
+        model = getattr(models, model_name)
+    except AttributeError:
+        write_invalid_model_error(model_name)
+        sys.exit()
 
 
 def get_model(model_name, logdir):
@@ -119,14 +141,15 @@ if __name__ == '__main__':
                                                   'gene expression data')
     parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
                         default='../logs')
+    parser.add_argument('--model', help='The name of the model to be used', default='MLP')
 
     args = parser.parse_args()
-    print(args.logdir)
 
+    model_name = validate_model_name(args.model)
 
     train_X, train_Y = load_data(args)
 
-    model = get_model('MLP', args.logdir)
+    model = get_model(model_name, args.logdir)
 
     model.fit(train_X, train_Y,
             batch_size=16,
