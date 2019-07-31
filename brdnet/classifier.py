@@ -1,14 +1,16 @@
+'''Train models to differentiate between case and control gene expression data'''
 
 import argparse
 import inspect
 import sys
+import time
+import os
 
 import numpy
 import pandas
 import tensorflow as tf
 
 import models
-
 
 def get_model_list():
     '''Return the list of model classes in the models module as a list of strings'''
@@ -138,6 +140,8 @@ def load_data(args):
 if __name__ == '__main__':
     model_list = get_model_list()
 
+    timestamp = time.time()
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('Z_file_path', help='Path to the PLIER matrix to be used to convert '
@@ -147,7 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('disease_file_path', help='Path to the tsv containing unhealthy '
                                                   'gene expression data')
     parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
-                        default='../logs')
+                        default='../logs/{}'.format(timestamp))
     parser.add_argument('--model', help='The name of the model to be used. The models currently '
                         'available are: {}'.format(', '.join(model_list)), default='MLP')
     parser.add_argument('-s', '--seed', help='The seed to be used in random number generators', default=42)
@@ -157,6 +161,9 @@ if __name__ == '__main__':
     # Set random seeds
     numpy.random.seed(args.seed)
     tf.compat.v1.set_random_seed(args.seed)
+
+    # Create log directory
+    os.mkdir(args.logdir)
 
     model_name = args.model
     validate_model_name(model_name)
@@ -169,5 +176,5 @@ if __name__ == '__main__':
             batch_size=16,
             epochs=1000,
             validation_split=.2,
-            callbacks=[tf.keras.callbacks.TensorBoard(log_dir='../logs')]
+            callbacks=[tf.keras.callbacks.TensorBoard(log_dir=args.logdir)]
             )
