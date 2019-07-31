@@ -9,20 +9,24 @@ import tensorflow as tf
 
 import models
 
-# Set random seeds
-numpy.random.seed(42)
-tf.compat.v1.set_random_seed(42)
+
+def get_model_list():
+    '''Return the list of model classes in the models module as a list of strings'''
+    model_list = []
+
+    # The only classes that should be in models.py are models, so we can
+    # iterate over all the classes in the module to get which models exist
+    for model in inspect.getmembers(models, inspect.isclass):
+        model_list.append(model[0])
+
+    return model_list
 
 
 def write_invalid_model_error(model_name):
     '''Write the error message for an invalid model, model_name'''
     sys.stderr.write('Error: models.py does not contain the model {}\n'.format(model_name))
     sys.stderr.write('The available models are:\n')
-
-    # The only classes that should be in models.py are models, so we can
-    # iterate over all the classes in the module to get which models exist
-    for model in inspect.getmembers(models, inspect.isclass):
-        sys.stderr.write('{}\n'.format(model[0]))
+    sys.stderr.write('\n'.join(get_model_list()))
 
 
 def validate_model_name(model_name):
@@ -83,7 +87,7 @@ def reduce_dimensionality(expression_df, Z_df):
     expression_df = expression_df.sort_index()
 
     # Since the gene symbols are in alphabetical order and are identical between
-    # the two dataframes, we can drop the labels and create a numpy matrix to be multiplier by Z
+    # the two dataframes, we can drop the labels and create a numpy matrix to be multiplied by Z
     expression_matrix = expression_df.values
     Z_matrix = Z_df.values
 
@@ -126,11 +130,14 @@ def load_data(args):
     train_Y = numpy.concatenate([healthy_labels, disease_labels])
 
     #TODO keep metadata with training data somehow
+    # (https://github.com/greenelab/brd-net/pull/7#discussion_r309284156)
 
     return train_X, train_Y
 
 
 if __name__ == '__main__':
+    model_list = get_model_list()
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('Z_file_path', help='Path to the PLIER matrix to be used to convert '
@@ -141,11 +148,18 @@ if __name__ == '__main__':
                                                   'gene expression data')
     parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
                         default='../logs')
-    parser.add_argument('--model', help='The name of the model to be used', default='MLP')
+    parser.add_argument('--model', help='The name of the model to be used. The models currently '
+                        'available are: {}'.format(', '.join(model_list)), default='MLP')
+    parser.add_argument('-s', '--seed', help='The seed to be used in random number generators', default=42)
 
     args = parser.parse_args()
 
-    model_name = validate_model_name(args.model)
+    # Set random seeds
+    numpy.random.seed(args.seed)
+    tf.compat.v1.set_random_seed(args.seed)
+
+    model_name = args.model
+    validate_model_name(model_name)
 
     train_X, train_Y = load_data(args)
 
