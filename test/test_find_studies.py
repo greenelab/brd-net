@@ -1,9 +1,14 @@
+import os
+import sys
+
 from unittest import TestCase
 import xml.etree.ElementTree as ET
 
 import pytest
 
-from brdnet import find_studies
+brdnet_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(brdnet_path + '/../brdnet')
+import find_studies
 
 
 group1 = {'samples': ['a']}
