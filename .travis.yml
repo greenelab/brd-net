@@ -10,6 +10,5 @@ before_install:
 install:
   - conda env create --quiet --file environment.yml
   - conda activate brdnet
-  - pip install .[test]
 script:
   - py.test
