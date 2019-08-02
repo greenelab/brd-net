@@ -152,6 +152,53 @@ def get_validation_set(data, validation_fraction=.2):
     return train_df, val_df
 
 
+def prepare_input_data(Z_df, healthy_df, disease_df):
+    '''Convert the dataframes from run_plier and download_categorized_data into
+    training and validation datasets with accompanying labels
+
+    Arguments
+    ---------
+    Z_df: pandas.DataFrame
+        The matrix to convert the expression data into the PLIER latent space
+    healthy_df:
+        The dataframe containing healthy gene expression samples
+    disease_df:
+        The dataframe containin unhealthy gene expression samples
+
+    Returns
+    -------
+    train_X: numpy.array
+        A numpy array containing the training gene expression data
+    train_Y: numpy.array
+        The labels corresponding to whether each sample represents healthy or unhealthy
+        gene expression
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model training
+    val_Y: numpy.array
+        The labels for val_X
+    '''
+    healthy_train, healthy_val = get_validation_set(healthy_df)
+    healthy_train = reduce_dimensionality(healthy_train, Z_df)
+    healthy_val = reduce_dimensionality(healthy_val, Z_df)
+
+    disease_train, disease_val = get_validation_set(disease_df)
+    disease_train = reduce_dimensionality(disease_train, Z_df)
+    disease_val = reduce_dimensionality(disease_val, Z_df)
+
+    healthy_train_labels = numpy.zeros(healthy_train.shape[0])
+    healthy_val_labels = numpy.zeros(healthy_val.shape[0])
+    disease_train_labels = numpy.ones(disease_train.shape[0])
+    disease_val_labels = numpy.ones(disease_val.shape[0])
+
+    train_X = numpy.concatenate([healthy_train, disease_train])
+    train_Y = numpy.concatenate([healthy_train_labels, disease_train_labels])
+
+    val_X = numpy.concatenate([healthy_val, disease_val])
+    val_Y = numpy.concatenate([healthy_val_labels, disease_val_labels])
+
+    return train_X, train_Y, val_X, val_Y
+
+
 def load_data(args):
     '''Load and process the training data
 
@@ -167,6 +214,10 @@ def load_data(args):
     train_Y: numpy.array
         The labels corresponding to whether each sample represents healthy or unhealthy
         gene expression
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model training
+    val_Y: numpy.array
+        The labels for val_X
     '''
     Z_df = pandas.read_csv(args.Z_file_path, sep='\t')
 
@@ -174,23 +225,29 @@ def load_data(args):
     Z_df = Z_df.sort_index()
 
     healthy_df = pandas.read_csv(args.healthy_file_path, sep='\t')
-
-    healthy_train, healthy_val = get_validation_set(healthy_df)
-    sys.exit(0)
-
-    #TODO reduce dimensionality of both train and val dfs
-    healthy_matrix = reduce_dimensionality(healthy_df, Z_df)
-
     disease_df = pandas.read_csv(args.disease_file_path, sep='\t')
-    disease_matrix = reduce_dimensionality(disease_df, Z_df)
 
-    healthy_labels = numpy.zeros(healthy_df.shape[1])
-    disease_labels = numpy.ones(disease_df.shape[1])
+    return prepare_input_data(Z_df, healthy_df, disease_df)
 
-    train_X = numpy.concatenate([healthy_matrix, disease_matrix])
-    train_Y = numpy.concatenate([healthy_labels, disease_labels])
 
-    return train_X, train_Y
+def train_model(train_X, train_Y, val_X, val_Y,
+                model_name=None, logdir=None, lr=None, epochs=None,
+                random_seed=42):
+    # Create log directory
+    os.mkdir(args.logdir)
+    model_name = args.model
+    validate_model_name(model_name)
+
+    model = get_model(model_name, args.logdir, args.learning_rate)
+
+    model.fit(train_X, train_Y,
+            batch_size=16,
+            epochs=args.epochs,
+            callbacks=[tf.keras.callbacks.TensorBoard(log_dir=args.logdir),
+                       tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                      ],
+            validation_data=(val_X, val_Y),
+            )
 
 
 if __name__ == '__main__':
@@ -223,20 +280,8 @@ if __name__ == '__main__':
     numpy.random.seed(args.seed)
     tf.compat.v1.set_random_seed(args.seed)
 
-    # Create log directory
-    os.mkdir(args.logdir)
+    train_X, train_Y, val_X, val_Y = load_data(args)
 
-    model_name = args.model
-    validate_model_name(model_name)
+    train_model(train_X, train_Y, val_X, val_Y,
+                args.model, args.logdir, args.learning_rate, args.epochs, args.seed)
 
-    train_X, train_Y = load_data(args)
-
-    model = get_model(model_name, args.logdir, args.learning_rate)
-
-    model.fit(train_X, train_Y,
-            batch_size=16,
-            epochs=args.epochs,
-            validation_split=.2,
-            callbacks=[tf.keras.callbacks.TensorBoard(log_dir=args.logdir),
-                       tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
-                      ])
