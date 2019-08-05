@@ -1,8 +1,6 @@
 '''Train models to differentiate between case and control gene expression data'''
 
 import argparse
-from collections import Counter
-import inspect
 import random
 import sys
 import time
@@ -13,24 +11,13 @@ import pandas
 import tensorflow as tf
 
 import models
-
-def get_model_list():
-    '''Return the list of model classes in the models module as a list of strings'''
-    model_list = []
-
-    # The only classes that should be in models.py are models, so we can
-    # iterate over all the classes in the module to get which models exist
-    for model in inspect.getmembers(models, inspect.isclass):
-        model_list.append(model[0])
-
-    return model_list
-
+import utils
 
 def write_invalid_model_error(model_name):
     '''Write the error message for an invalid model, model_name'''
     sys.stderr.write('Error: models.py does not contain the model {}\n'.format(model_name))
     sys.stderr.write('The available models are:\n')
-    sys.stderr.write('\n'.join(get_model_list()))
+    sys.stderr.write('\n'.join(utils.get_model_list()))
 
 
 def validate_model_name(model_name):
@@ -40,37 +27,6 @@ def validate_model_name(model_name):
     except AttributeError:
         write_invalid_model_error(model_name)
         sys.exit()
-
-
-def get_model(model_name, logdir, lr):
-    '''Retrieve a Model object from the models.py module by name
-
-    Arguments
-    ---------
-    model_name: string
-        The name of the model to retrieve
-    logdir: string
-        The path to the directory to save logs to
-    lr: float
-        The learning rate to be used by the optimizer
-
-    Returns
-    -------
-    model: Model
-        The model object with name model_name
-    '''
-    # This retrieves whatever has the name model_name in the models module
-    model = getattr(models, model_name)
-
-    modelInstance = model()
-
-    optimizer = tf.keras.optimizers.Adam(lr=lr)
-
-    modelInstance.compile(optimizer=optimizer,
-                          loss='binary_crossentropy',
-                          metrics=['accuracy'],
-                         )
-    return modelInstance
 
 
 def reduce_dimensionality(expression_df, Z_df):
@@ -102,57 +58,7 @@ def reduce_dimensionality(expression_df, Z_df):
     return reduced_matrix
 
 
-def get_validation_set(data, validation_fraction=.2):
-    '''Split a dataframe into training and validation data by extracting studies
-       that contain a certain fraction of the samples
-
-       Arguments
-       ---------
-       data: pandas.DataFrame
-           data is a dataframe where the rows represent genes and columns represent samples.
-           The column names should be of the format 'studyid.runid' to allow the study
-           information to be used.
-       validation_fraction: float
-           The fraction of the dataset to be pulled out as validation data
-
-       Returns
-       -------
-       train_df: pandas.DataFrame
-           A dataframe containing the fraction of the sample to be used in training
-       val_df:
-           A dataframe containing the fraction of the sample to be used for validation
-    '''
-    studies = [name.split('.')[0] for name in data.columns]
-    # random.shuffle shuffles in place
-    random.shuffle(studies)
-
-    counter = Counter(studies)
-
-    target_sample_count = len(data.columns) * validation_fraction
-
-    samples_so_far = 0
-    val_studies = []
-    for study, samples in counter.items():
-        # Prevent the validation set from being too much larger than the target
-        if samples_so_far + samples > len(data.columns) * (validation_fraction + .05):
-            continue
-        val_studies.append(study)
-        samples_so_far += samples
-
-        if samples_so_far >= target_sample_count:
-            break
-
-    val_columns = []
-    for study in val_studies:
-        val_columns.extend([col for col in data.columns if study in col])
-
-    val_df = data[val_columns]
-    train_df = data[data.columns.difference(val_columns)]
-
-    return train_df, val_df
-
-
-def prepare_input_data(Z_df, healthy_df, disease_df):
+def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     '''Convert the dataframes from run_plier and download_categorized_data into
     training and validation datasets with accompanying labels
 
@@ -160,10 +66,12 @@ def prepare_input_data(Z_df, healthy_df, disease_df):
     ---------
     Z_df: pandas.DataFrame
         The matrix to convert the expression data into the PLIER latent space
-    healthy_df:
+    healthy_df: pandas.DataFrame
         The dataframe containing healthy gene expression samples
-    disease_df:
+    disease_df: pandas.DataFrame
         The dataframe containin unhealthy gene expression samples
+    random_seed: int
+        The seed to be used by utils.get_validation_set
 
     Returns
     -------
@@ -177,11 +85,12 @@ def prepare_input_data(Z_df, healthy_df, disease_df):
     val_Y: numpy.array
         The labels for val_X
     '''
-    healthy_train, healthy_val = get_validation_set(healthy_df)
+    healthy_train, healthy_val, disease_train, disease_val = utils.get_validation_set(healthy_df,
+                                                                                      disease_df,
+                                                                                      .2,
+                                                                                      random_seed)
     healthy_train = reduce_dimensionality(healthy_train, Z_df)
     healthy_val = reduce_dimensionality(healthy_val, Z_df)
-
-    disease_train, disease_val = get_validation_set(disease_df)
     disease_train = reduce_dimensionality(disease_train, Z_df)
     disease_val = reduce_dimensionality(disease_val, Z_df)
 
@@ -227,31 +136,30 @@ def load_data(args):
     healthy_df = pandas.read_csv(args.healthy_file_path, sep='\t')
     disease_df = pandas.read_csv(args.disease_file_path, sep='\t')
 
-    return prepare_input_data(Z_df, healthy_df, disease_df)
+    return prepare_input_data(Z_df, healthy_df, disease_df, args.seed)
 
 
 def train_model(train_X, train_Y, val_X, val_Y,
-                model_name=None, logdir=None, lr=None, epochs=None,
-                random_seed=42):
+                model_name=None, logdir=None, lr=None, epochs=None, batch_size=16):
     # Create log directory
-    os.mkdir(args.logdir)
-    model_name = args.model
+    os.mkdir(logdir)
+    model_name = model_name
     validate_model_name(model_name)
 
-    model = get_model(model_name, args.logdir, args.learning_rate)
+    model = utils.get_model(model_name, logdir, lr)
 
     model.fit(train_X, train_Y,
-            batch_size=16,
-            epochs=args.epochs,
-            callbacks=[tf.keras.callbacks.TensorBoard(log_dir=args.logdir),
-                       tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
-                      ],
-            validation_data=(val_X, val_Y),
-            )
+              batch_size=batch_size,
+              epochs=epochs,
+              callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir),
+                         tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                        ],
+              validation_data=(val_X, val_Y),
+              )
 
 
 if __name__ == '__main__':
-    model_list = get_model_list()
+    model_list = utils.get_model_list()
 
     timestamp = time.time()
 
@@ -267,21 +175,26 @@ if __name__ == '__main__':
                         default='../logs/{}'.format(timestamp))
     parser.add_argument('--model', help='The name of the model to be used. The models currently '
                         'available are: {}'.format(', '.join(model_list)), default='MLP')
-    parser.add_argument('-s', '--seed', help='The seed to be used in random number generators', default=42)
-    parser.add_argument('-l', '--learning_rate', help='The learning rate to be used by the '
-                                                      'optimization process',
+    parser.add_argument('-s', '--seed', help='The seed to be used in random number generators',
+                        default=42)
+    parser.add_argument('-l', '--learning_rate', help='The base learning rate to be used by the '
+                                                      'optimization process. When the validation '
+                                                      'loss reaches a plateau, the learning rate '
+                                                      'will decrease until it reaches 1e-11',
                         default=1e-5)
     parser.add_argument('--epochs', help='The maximum number of epochs to train the model for',
                         default=1000)
+    parser.add_argument('--batch_size', help='The number of training samples in a batch',
+                        default=16)
 
     args = parser.parse_args()
 
     # Set random seeds
+    random.seed(args.seed)
     numpy.random.seed(args.seed)
     tf.compat.v1.set_random_seed(args.seed)
 
     train_X, train_Y, val_X, val_Y = load_data(args)
 
     train_model(train_X, train_Y, val_X, val_Y,
-                args.model, args.logdir, args.learning_rate, args.epochs, args.seed)
-
+                args.model, args.logdir, args.learning_rate, args.epochs, args.batch_size)

@@ -7,7 +7,7 @@ import pytest
 
 brdnet_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(brdnet_path + '/../brdnet')
-import classifier
+import utils
 
 
 def create_testing_dataframe():
@@ -29,7 +29,7 @@ def create_testing_dataframe():
 def test_get_validation_set():
     df = create_testing_dataframe()
 
-    train_df, val_df = classifier.get_validation_set(df, validation_fraction=.2)
+    train_df, val_df, _, _ = utils.get_validation_set(df, df, validation_fraction=.2)
 
     assert len(val_df.columns) == 2
     assert len(train_df.columns) == 8
