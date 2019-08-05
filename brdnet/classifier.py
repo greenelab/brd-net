@@ -1,32 +1,23 @@
+'''Train models to differentiate between case and control gene expression data'''
 
 import argparse
-import inspect
+import random
 import sys
+import time
+import os
 
 import numpy
 import pandas
 import tensorflow as tf
 
 import models
-
-
-def get_model_list():
-    '''Return the list of model classes in the models module as a list of strings'''
-    model_list = []
-
-    # The only classes that should be in models.py are models, so we can
-    # iterate over all the classes in the module to get which models exist
-    for model in inspect.getmembers(models, inspect.isclass):
-        model_list.append(model[0])
-
-    return model_list
-
+import utils
 
 def write_invalid_model_error(model_name):
     '''Write the error message for an invalid model, model_name'''
     sys.stderr.write('Error: models.py does not contain the model {}\n'.format(model_name))
     sys.stderr.write('The available models are:\n')
-    sys.stderr.write('\n'.join(get_model_list()))
+    sys.stderr.write('\n'.join(utils.get_model_list()))
 
 
 def validate_model_name(model_name):
@@ -36,35 +27,6 @@ def validate_model_name(model_name):
     except AttributeError:
         write_invalid_model_error(model_name)
         sys.exit()
-
-
-def get_model(model_name, logdir):
-    '''Retrieve a Model object from the models.py module by name
-
-    Arguments
-    ---------
-    model_name: string
-        The name of the model to retrieve
-    logdir: string
-        The path to the directory to save logs to
-
-    Returns
-    -------
-    model: Model
-        The model object with name model_name
-    '''
-    # This retrieves whatever has the name model_name in the models module
-    model = getattr(models, model_name)
-
-    modelInstance = model()
-
-    optimizer = tf.keras.optimizers.Adam(lr=1e-6)
-
-    modelInstance.compile(optimizer=optimizer,
-                          loss='binary_crossentropy',
-                          metrics=['accuracy'],
-                         )
-    return modelInstance
 
 
 def reduce_dimensionality(expression_df, Z_df):
@@ -96,6 +58,56 @@ def reduce_dimensionality(expression_df, Z_df):
     return reduced_matrix
 
 
+def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
+    '''Convert the dataframes from run_plier and download_categorized_data into
+    training and validation datasets with accompanying labels
+
+    Arguments
+    ---------
+    Z_df: pandas.DataFrame
+        The matrix to convert the expression data into the PLIER latent space
+    healthy_df: pandas.DataFrame
+        The dataframe containing healthy gene expression samples
+    disease_df: pandas.DataFrame
+        The dataframe containin unhealthy gene expression samples
+    random_seed: int
+        The seed to be used by utils.get_validation_set
+
+    Returns
+    -------
+    train_X: numpy.array
+        A numpy array containing the training gene expression data
+    train_Y: numpy.array
+        The labels corresponding to whether each sample represents healthy or unhealthy
+        gene expression
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model training
+    val_Y: numpy.array
+        The labels for val_X
+    '''
+    healthy_train, healthy_val, disease_train, disease_val = utils.get_validation_set(healthy_df,
+                                                                                      disease_df,
+                                                                                      .2,
+                                                                                      random_seed)
+    healthy_train = reduce_dimensionality(healthy_train, Z_df)
+    healthy_val = reduce_dimensionality(healthy_val, Z_df)
+    disease_train = reduce_dimensionality(disease_train, Z_df)
+    disease_val = reduce_dimensionality(disease_val, Z_df)
+
+    healthy_train_labels = numpy.zeros(healthy_train.shape[0])
+    healthy_val_labels = numpy.zeros(healthy_val.shape[0])
+    disease_train_labels = numpy.ones(disease_train.shape[0])
+    disease_val_labels = numpy.ones(disease_val.shape[0])
+
+    train_X = numpy.concatenate([healthy_train, disease_train])
+    train_Y = numpy.concatenate([healthy_train_labels, disease_train_labels])
+
+    val_X = numpy.concatenate([healthy_val, disease_val])
+    val_Y = numpy.concatenate([healthy_val_labels, disease_val_labels])
+
+    return train_X, train_Y, val_X, val_Y
+
+
 def load_data(args):
     '''Load and process the training data
 
@@ -111,6 +123,10 @@ def load_data(args):
     train_Y: numpy.array
         The labels corresponding to whether each sample represents healthy or unhealthy
         gene expression
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model training
+    val_Y: numpy.array
+        The labels for val_X
     '''
     Z_df = pandas.read_csv(args.Z_file_path, sep='\t')
 
@@ -118,25 +134,34 @@ def load_data(args):
     Z_df = Z_df.sort_index()
 
     healthy_df = pandas.read_csv(args.healthy_file_path, sep='\t')
-    healthy_matrix = reduce_dimensionality(healthy_df, Z_df)
-
     disease_df = pandas.read_csv(args.disease_file_path, sep='\t')
-    disease_matrix = reduce_dimensionality(disease_df, Z_df)
 
-    healthy_labels = numpy.zeros(healthy_df.shape[1])
-    disease_labels = numpy.ones(disease_df.shape[1])
+    return prepare_input_data(Z_df, healthy_df, disease_df, args.seed)
 
-    train_X = numpy.concatenate([healthy_matrix, disease_matrix])
-    train_Y = numpy.concatenate([healthy_labels, disease_labels])
 
-    #TODO keep metadata with training data somehow
-    # (https://github.com/greenelab/brd-net/pull/7#discussion_r309284156)
+def train_model(train_X, train_Y, val_X, val_Y,
+                model_name=None, logdir=None, lr=None, epochs=None, batch_size=16):
+    # Create log directory
+    os.mkdir(logdir)
+    model_name = model_name
+    validate_model_name(model_name)
 
-    return train_X, train_Y
+    model = utils.get_model(model_name, logdir, lr)
+
+    model.fit(train_X, train_Y,
+              batch_size=batch_size,
+              epochs=epochs,
+              callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir),
+                         tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                        ],
+              validation_data=(val_X, val_Y),
+              )
 
 
 if __name__ == '__main__':
-    model_list = get_model_list()
+    model_list = utils.get_model_list()
+
+    timestamp = time.time()
 
     parser = argparse.ArgumentParser()
 
@@ -147,27 +172,29 @@ if __name__ == '__main__':
     parser.add_argument('disease_file_path', help='Path to the tsv containing unhealthy '
                                                   'gene expression data')
     parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
-                        default='../logs')
+                        default='../logs/{}'.format(timestamp))
     parser.add_argument('--model', help='The name of the model to be used. The models currently '
                         'available are: {}'.format(', '.join(model_list)), default='MLP')
-    parser.add_argument('-s', '--seed', help='The seed to be used in random number generators', default=42)
+    parser.add_argument('-s', '--seed', help='The seed to be used in random number generators',
+                        default=42)
+    parser.add_argument('-l', '--learning_rate', help='The base learning rate to be used by the '
+                                                      'optimization process. When the validation '
+                                                      'loss reaches a plateau, the learning rate '
+                                                      'will decrease until it reaches 1e-11',
+                        default=1e-5)
+    parser.add_argument('--epochs', help='The maximum number of epochs to train the model for',
+                        default=1000)
+    parser.add_argument('--batch_size', help='The number of training samples in a batch',
+                        default=16)
 
     args = parser.parse_args()
 
     # Set random seeds
+    random.seed(args.seed)
     numpy.random.seed(args.seed)
     tf.compat.v1.set_random_seed(args.seed)
 
-    model_name = args.model
-    validate_model_name(model_name)
+    train_X, train_Y, val_X, val_Y = load_data(args)
 
-    train_X, train_Y = load_data(args)
-
-    model = get_model(model_name, args.logdir)
-
-    model.fit(train_X, train_Y,
-            batch_size=16,
-            epochs=1000,
-            validation_split=.2,
-            callbacks=[tf.keras.callbacks.TensorBoard(log_dir='../logs')]
-            )
+    train_model(train_X, train_Y, val_X, val_Y,
+                args.model, args.logdir, args.learning_rate, args.epochs, args.batch_size)

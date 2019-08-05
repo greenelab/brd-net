@@ -24,4 +24,5 @@ dependencies:
     - conda-forge::tqdm=4.32.2
     - bioconda::bioconductor-recount=1.8.1
     - bioconda::bioconductor-qvalue=2.14.0
+    - pip=19.2.1
     - tensorflow-gpu==1.14.0

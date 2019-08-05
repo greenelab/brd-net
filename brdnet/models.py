@@ -24,3 +24,18 @@ class MLP(tf.keras.Model):
         x = self.layer2(x)
         x = self.layer3(x)
         return self.out_layer(x)
+
+class TenLayerNet(tf.keras.Model):
+    def __init__(self):
+        super(TenLayerNet, self).__init__()
+        self.layer_list = []
+        for i in range(10):
+            self.layer_list.append(tf.keras.layers.Dense(64, activation='relu'))
+        self.out_layer = tf.keras.layers.Dense(1, activation='sigmoid')
+
+    def call(self, inputs):
+        x = inputs
+        for layer in self.layer_list:
+            x = layer(x)
+        return self.out_layer(x)
+
