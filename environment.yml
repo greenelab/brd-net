@@ -26,3 +26,4 @@ dependencies:
     - bioconda::bioconductor-qvalue=2.14.0
     - pip=19.2.1
     - tensorflow-gpu==1.14.0
+    - pyyaml==5.1.1

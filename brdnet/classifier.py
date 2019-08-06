@@ -139,11 +139,12 @@ def load_data(args):
     return prepare_input_data(Z_df, healthy_df, disease_df, args.seed)
 
 
-def train_model(train_X, train_Y, val_X, val_Y,
-                model_name=None, logdir=None, lr=None, epochs=None, batch_size=16):
+def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
+                model_name, logdir=None, lr=1e-6, epochs=1000, batch_size=16):
     # Create log directory
-    os.mkdir(logdir)
-    model_name = model_name
+    if not os.path.isdir(logdir):
+        os.makedirs(logdir)
+
     validate_model_name(model_name)
 
     model = utils.get_model(model_name, logdir, lr)
@@ -153,9 +154,14 @@ def train_model(train_X, train_Y, val_X, val_Y,
               epochs=epochs,
               callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir),
                          tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                         tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
+                                                            save_weights_only=True,
+                                                            save_best_only=True),
                         ],
               validation_data=(val_X, val_Y),
+              verbose=0,
               )
+    return model
 
 
 if __name__ == '__main__':
@@ -186,6 +192,8 @@ if __name__ == '__main__':
                         default=1000)
     parser.add_argument('--batch_size', help='The number of training samples in a batch',
                         default=16)
+    parser.add_argument('--checkpoint_dir', help='The directory to save model weights to',
+                        default='../checkpoints')
 
     args = parser.parse_args()
 
@@ -196,5 +204,13 @@ if __name__ == '__main__':
 
     train_X, train_Y, val_X, val_Y = load_data(args)
 
-    train_model(train_X, train_Y, val_X, val_Y,
+    validate_model_name(args.model)
+
+    full_checkpoint_dir = os.path.join(args.checkpoint_dir, args.model)
+    if not os.path.isdir(full_checkpoint_dir):
+        os.makedirs(full_checkpoint_dir)
+
+    checkpoint_path = os.path.join(full_checkpoint_dir, 'checkpoint')
+
+    train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
                 args.model, args.logdir, args.learning_rate, args.epochs, args.batch_size)
