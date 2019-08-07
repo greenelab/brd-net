@@ -140,7 +140,8 @@ def load_data(args):
 
 
 def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
-                model_name, logdir=None, lr=1e-6, epochs=1000, batch_size=16):
+                model_name, logdir=None, lr=1e-6, epochs=1000, batch_size=16,
+                ):
     # Create log directory
     if not os.path.isdir(logdir):
         os.makedirs(logdir)
@@ -149,15 +150,24 @@ def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
 
     model = utils.get_model(model_name, logdir, lr)
 
+    callbacks = [tf.keras.callbacks.TensorBoard(log_dir=logdir),
+                 tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                 tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
+                                                    save_weights_only=True,
+                                                    save_best_only=True)
+                ]
+
+    if logdir is None:
+        callbacks = [tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                     tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
+                                                        save_weights_only=True,
+                                                        save_best_only=True)
+                    ]
+
     model.fit(train_X, train_Y,
+              callbacks=callbacks,
               batch_size=batch_size,
               epochs=epochs,
-              callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir),
-                         tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
-                         tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
-                                                            save_weights_only=True,
-                                                            save_best_only=True),
-                        ],
               validation_data=(val_X, val_Y),
               verbose=0,
               )
