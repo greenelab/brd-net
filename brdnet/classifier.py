@@ -142,23 +142,23 @@ def load_data(args):
 def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
                 model_name, logdir=None, lr=1e-6, epochs=1000, batch_size=16,
                 ):
-    # Create log directory
-    if not os.path.isdir(logdir):
-        os.makedirs(logdir)
 
     validate_model_name(model_name)
 
     model = utils.get_model(model_name, logdir, lr)
 
-    callbacks = [tf.keras.callbacks.TensorBoard(log_dir=logdir),
-                 tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+
+    callbacks = [tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
                  tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                     save_weights_only=True,
                                                     save_best_only=True)
                 ]
-
-    if logdir is None:
-        callbacks = [tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+    # Create log directory
+    if logdir is not None:
+        if not os.path.isdir(logdir):
+            os.makedirs(logdir)
+        callbacks = [tf.keras.callbacks.TensorBoard(log_dir=logdir),
+                     tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
                      tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                         save_weights_only=True,
                                                         save_best_only=True)
@@ -187,8 +187,7 @@ if __name__ == '__main__':
                                                   'expression')
     parser.add_argument('disease_file_path', help='Path to the tsv containing unhealthy '
                                                   'gene expression data')
-    parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
-                        default='../logs/{}'.format(timestamp))
+    parser.add_argument('--logdir', help='The directory to print tensorboard logs to')
     parser.add_argument('--model', help='The name of the model to be used. The models currently '
                         'available are: {}'.format(', '.join(model_list)), default='MLP')
     parser.add_argument('-s', '--seed', help='The seed to be used in random number generators',

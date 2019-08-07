@@ -52,9 +52,11 @@ def get_model(model_name, logdir, lr):
 
     optimizer = tf.keras.optimizers.Adam(lr=lr)
 
+    auc = tf.keras.metrics.AUC()
+
     model_instance.compile(optimizer=optimizer,
                            loss='binary_crossentropy',
-                           metrics=['accuracy'],
+                           metrics=['accuracy', auc],
                           )
     return model_instance
 
