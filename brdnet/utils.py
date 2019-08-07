@@ -7,6 +7,15 @@ import tensorflow as tf
 
 import models
 
+
+def calculate_accuracy(pred_Y, true_Y):
+    '''Calculate the accuracy for a set of predicted classification labels'''
+    # We use subtraction and count_nonzero because logical_xor only works for binary labels
+    num_incorrect = numpy.count_nonzero(numpy.subtract(pred_Y, true_Y))
+    acc = (len(pred_Y) - num_incorrect) / len(pred_Y)
+    return acc
+
+
 def get_model_list():
     '''Return the list of model classes in the models module as a list of strings'''
     model_list = []
