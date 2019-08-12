@@ -20,3 +20,15 @@ import utils
                         )
 def test_calculate_accuracy(pred_Y, true_Y, correct_answer):
     assert utils.calculate_accuracy(pred_Y, true_Y) == pytest.approx(correct_answer)
+
+@pytest.mark.parametrize('Y, true_percent',
+                         [([1, 2, 2, 2, 3], .6),
+                          ([0, 0, 1, 1], .5),
+                          ([0, 0, 0, 0, 1, 1], 4/6),
+                          ([0, 0, 0, 0], 1),
+                          ([1, 2, 3, 4], .25),
+                         ]
+                        )
+def test_get_larger_class_percentage(Y, true_percent):
+    assert utils.get_larger_class_percentage(Y) == pytest.approx(true_percent)
+

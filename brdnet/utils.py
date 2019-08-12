@@ -8,6 +8,24 @@ import tensorflow as tf
 import models
 
 
+def get_larger_class_percentage(Y):
+    '''Calculate the percentage of the labels that belong to the largest class
+
+    Arguments
+    ---------
+    Y: numpy array
+        The labels for the data
+
+    Returns
+    -------
+    percentage: float
+        The percentage of the labels that belongs to the largest class
+    '''
+    _, counts = numpy.unique(Y, return_counts=True)
+
+    return max(counts) / sum(counts)
+
+
 def calculate_accuracy(pred_Y, true_Y):
     '''Calculate the accuracy for a set of predicted classification labels'''
     # We use subtraction and count_nonzero because logical_xor only works for binary labels
