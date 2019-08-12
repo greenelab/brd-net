@@ -1,19 +1,21 @@
-'''Compare the performance of the models in models.py on the validation dataset'''
+'''Compare the performance of different models in learning to differentiate between healthy
+and unhealthy gene expression
+'''
 import argparse
 import importlib
 import os
 
-# Mute INFO and WARNINGs from tensorflow
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# Mute INFO and WARNING logs from tensorflow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import pandas
-from plotnine import *
 import pyod
 import sklearn
 
 import classifier
 import models
 import utils
+
 
 def model_from_pyod(model_name):
     try:
@@ -24,7 +26,6 @@ def model_from_pyod(model_name):
 
         return True
     except (AttributeError, ModuleNotFoundError) as e:
-        print(e)
         return False
 
 
@@ -32,7 +33,7 @@ def model_from_tf(model_name):
     try:
         model = getattr(models, model_name)
         return True
-    except:
+    except AttributeError:
         return False
 
 
@@ -46,8 +47,6 @@ def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y, seed):
     model_instance.fit(train_X, train_Y)
 
     predictions = model_instance.predict(val_X)
-
-    # Apply threshold_ on decision_scores_ from model after fit to get AUC
 
     val_acc = utils.calculate_accuracy(predictions, val_Y)
     val_auroc = sklearn.metrics.roc_auc_score(val_Y, model_instance.decision_function(val_X))
@@ -75,6 +74,7 @@ def eval_tf_model(model, lr, train_X, train_Y, val_X, val_Y, checkpoint_dir, log
     val_loss, val_acc, val_auroc = untrained_model.evaluate(val_X, val_Y)
     return val_acc, val_auroc
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -89,7 +89,12 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint_dir', help='The directory to save model weights to',
                         default='../checkpoints')
     parser.add_argument('--logdir', help='The directory to log training progress to')
-
+    parser.add_argument('--out_path', help='The file to print the csv containing the results to',
+                        default='../results/model_eval_results.csv')
+    parser.add_argument('--num_seeds', help='The number of times to randomly select a '
+                        'validation dataset', default=10, type=int)
+    parser.add_argument('--learning_rates', help='The learning rate or rates to use for each '
+                        'tensorflow model', nargs='*', type=float, default=[1e-3])
 
     args = parser.parse_args()
 
@@ -98,14 +103,18 @@ if __name__ == '__main__':
 
     losses = []
 
-    seen_models = set()
+    seen_pyod_models = set()
 
-    for seed in range(1):
-        args.seed = seed
+    for seed in range(args.num_seeds):
         # For now, we'll use the load_data function from classifier.py.
         # In the future, we'll want to tinker with the Z df, so we'll implement a new one
-        train_X, train_Y, val_X, val_Y = classifier.load_data(args)
-        for lr in [10 ** -x for x in range(3,4)]:
+        train_X, train_Y, val_X, val_Y = classifier.load_data(args.Z_file_path,
+                                                              args.healthy_file_path,
+                                                              args.disease_file_path,
+                                                              seed)
+        val_baseline = utils.get_larger_class_percentage(val_Y)
+
+        for lr in args.learning_rates:
             for model in model_list:
                 val_acc = None
                 val_auroc = None
@@ -113,30 +122,23 @@ if __name__ == '__main__':
                 if model_from_tf(model):
                     val_acc, val_auroc = eval_tf_model(model, lr, train_X, train_Y, val_X, val_Y,
                                                        args.checkpoint_dir, args.logdir,
-                                                       args.epochs, args.seed)
+                                                       args.epochs, seed)
                 # Don't rerun pyod models for different learning rates, because they don't have
                 # an lr hyperparameter
-                if (model, seed) not in seen_models:
+                if (model, seed) not in seen_pyod_models:
                     if model_from_pyod(model):
                         val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y, val_X, val_Y,
-                                                             args.seed)
-                        seen_models.add((model, seed))
+                                                             seed)
+                        seen_pyod_models.add((model, seed))
 
-                losses.append((model, lr, seed, val_acc, val_auroc))
+                losses.append((model, lr, seed, val_acc, val_auroc, val_baseline))
 
+    results_df = pandas.DataFrame.from_records(losses, columns=['Model',
+                                                                'LR',
+                                                                'Seed',
+                                                                'val_acc',
+                                                                'val_auroc',
+                                                                'val_baseline',
+                                                               ])
 
-    # Run eval on best model from each
-    # Plot results
-
-    loss_df = pandas.DataFrame.from_records(losses, columns=['Model',
-                                                             'LR',
-                                                             'Seed',
-                                                             'val_acc',
-                                                             'val_auroc',
-                                                             ])
-    loss_df.to_csv('loss_df.csv')
-
-    plot = ggplot(loss_df, aes(x='Model', y='val_auroc', color='factor(LR)')) + geom_point()
-    ggsave(plot, 'loss_plot.png')
-    plot = ggplot(loss_df, aes(x='Model', y='val_acc', color='factor(LR)')) + geom_point()
-    ggsave(plot, 'acc_plot.png')
+    results_df.to_csv(args.out_path)
