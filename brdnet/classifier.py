@@ -108,13 +108,20 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     return train_X, train_Y, val_X, val_Y
 
 
-def load_data(args):
+def load_data(Z_file_path, healthy_file_path, disease_file_path, seed):
     '''Load and process the training data
 
     Arguments
     ---------
-    args: namespace
-        The command line arguments passed in to the script
+    Z_file_path: str or Path object
+        The path to the file containing the dataframe for moving expression data
+        into the PLIER latent space
+    healthy_file_path: str or Path object
+        The path to the file containing healthy gene expression data
+    disease_file_path: str or Path object
+        The path to the file containing unhealthy gene expression data
+    seed: int
+        The random seed to be used in sampling validation data
 
     Returns
     -------
@@ -128,15 +135,15 @@ def load_data(args):
     val_Y: numpy.array
         The labels for val_X
     '''
-    Z_df = pandas.read_csv(args.Z_file_path, sep='\t')
+    Z_df = pandas.read_csv(Z_file_path, sep='\t')
 
     # Ensure the gene symbols are in alphabetical order
     Z_df = Z_df.sort_index()
 
-    healthy_df = pandas.read_csv(args.healthy_file_path, sep='\t')
-    disease_df = pandas.read_csv(args.disease_file_path, sep='\t')
+    healthy_df = pandas.read_csv(healthy_file_path, sep='\t')
+    disease_df = pandas.read_csv(disease_file_path, sep='\t')
 
-    return prepare_input_data(Z_df, healthy_df, disease_df, args.seed)
+    return prepare_input_data(Z_df, healthy_df, disease_df, seed)
 
 
 def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
