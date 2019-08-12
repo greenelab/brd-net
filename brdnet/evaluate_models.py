@@ -95,10 +95,17 @@ if __name__ == '__main__':
                         'validation dataset', default=10, type=int)
     parser.add_argument('--learning_rates', help='The learning rate or rates to use for each '
                         'tensorflow model', nargs='*', type=float, default=[1e-3])
+    parser.add_argument('--pyod_models', help='The case sensitive list of names of PyOD'
+                        'models to evaluate. A list of all possible names can be found at'
+                        'https://pyod.readthedocs.io/en/latest/pyod.html',
+                        nargs='*', type=str, default=['IForest', 'OCSVM'])
 
     args = parser.parse_args()
 
-    model_list = ['IForest', 'OCSVM']
+    # Add the names of pyod models manually, as there are too many to iterate over all of them
+    model_list = []
+    if args.pyod_models is not None:
+        model_list = args.pyod_models
     model_list.extend(utils.get_model_list())
 
     losses = []
