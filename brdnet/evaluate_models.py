@@ -18,6 +18,21 @@ import utils
 
 
 def model_from_pyod(model_name):
+    ''' Determine whether a model is from the PyOD module
+
+    Arguments
+    ---------
+    model_name: str
+        The name of the module containing the model, e.g. IForest or OCSVM.
+        The naming convention of the PyOD package has the models' modules in
+        lower case, while the model classes themselves are the same string
+        but in upper camel case.
+
+    Returns
+    -------
+    bool
+        True if the model is found in pyod, false otherwise
+    '''
     try:
         # Import the model module from pyod
         model_module = 'pyod.models.{}'.format(model_name.lower())
@@ -30,6 +45,18 @@ def model_from_pyod(model_name):
 
 
 def model_from_tf(model_name):
+    ''' Determine whether a model is found in models.py
+
+    Arguments
+    ---------
+    model_name: str
+        The name of the model class in models.py
+
+    Returns
+    -------
+    bool
+        True if the model in found in models.py, false otherwise
+    '''
     try:
         model = getattr(models, model_name)
         return True
@@ -37,7 +64,33 @@ def model_from_tf(model_name):
         return False
 
 
-def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y, seed):
+def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y):
+    '''Train a model from PyOD on train_X and train_Y, then evaluate its performance
+    on val_X and val_Y
+
+    Arguments
+    ---------
+    model_name: str
+        The name of the model to be imported from PyOD
+    train_X: numpy.array
+        The gene expression data to train the model on
+    train_Y: numpy.array
+        The labels corresponding to whether each sample represents healthy or unhealthy
+        gene expression
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model performance
+    val_Y: numpy.array
+        The labels corresponding to whether each sample in val_X represents healthy or
+        unhealthy gene expression
+
+    Returns
+    -------
+    val_acc: float
+        The accuracy the model achieved in predicting val_Y from val_X
+    val_auroc: float
+        The area under the receiver operating characteristic curve based on the
+        model's decision function on val_X
+    '''
     # Import the model module from pyod
     model_module = 'pyod.models.{}'.format(model_name.lower())
     module = importlib.import_module(model_module)
@@ -54,15 +107,51 @@ def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y, seed):
     return val_acc, val_auroc
 
 
-def eval_tf_model(model, lr, train_X, train_Y, val_X, val_Y, checkpoint_dir, logdir, epochs, seed):
+def eval_tf_model(model_name, lr, train_X, train_Y, val_X, val_Y, checkpoint_dir, logdir, epochs, seed):
+    '''Train a model from models.py on train_X and train_Y, then evaluate its performance
+    on val_X and val_Y
+
+    Arguments
+    ---------
+    model_name: str
+        The name of the model to be imported from models.py
+    lr: float
+        The size of each update step made by the optimizer
+    train_X: numpy.array
+        The gene expression data to train the model on
+    train_Y: numpy.array
+        The labels corresponding to whether each sample represents healthy or unhealthy
+        gene expression
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model performance
+    val_Y: numpy.array
+        The labels corresponding to whether each sample in val_X represents healthy or
+        unhealthy gene expression
+    checkpoint_dir: str or Path
+        The base directory in which to store checkpoint files for the best performing models
+    logdir: str or Path or None
+        The directory to save tensorboard logs to
+    epochs: int
+        The number of times the model should see the entirety of train_X before it completes training
+    seed: int
+        The current seed for the random number generator
+
+    Returns
+    -------
+    val_acc: float
+        The accuracy the model achieved in predicting val_Y from val_X
+    val_auroc: float
+        The area under the receiver operating characteristic curve based on the
+        model's decision function on val_X
+    '''
     lr_string = '{:.0e}'.format(lr)
-    checkpoint_string = '{}_{}_{}'.format(model, lr_string, seed)
+    checkpoint_string = '{}_{}_{}'.format(model_name, lr_string, seed)
     checkpoint_path = os.path.join(checkpoint_dir, checkpoint_string, 'checkpoint')
 
     os.makedirs(os.path.join(checkpoint_dir, checkpoint_string), exist_ok=True)
 
     classifier.train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
-                           model_name=model, lr=lr,
+                           model_name=model_name, lr=lr,
                            epochs=int(epochs))
 
     # Load model
@@ -134,8 +223,7 @@ if __name__ == '__main__':
                 # an lr hyperparameter
                 if (model, seed) not in seen_pyod_models:
                     if model_from_pyod(model):
-                        val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y, val_X, val_Y,
-                                                             seed)
+                        val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y, val_X, val_Y)
                         seen_pyod_models.add((model, seed))
 
                 losses.append((model, lr, seed, val_acc, val_auroc, val_baseline))

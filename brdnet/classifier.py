@@ -133,7 +133,8 @@ def load_data(Z_file_path, healthy_file_path, disease_file_path, seed):
     val_X: numpy.array
         The gene expression data to be held out to evaluate model training
     val_Y: numpy.array
-        The labels for val_X
+        The labels corresponnding to whether each sample in val_X represents healthy
+        or unhealthy gene expression
     '''
     Z_df = pandas.read_csv(Z_file_path, sep='\t')
 
