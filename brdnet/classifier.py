@@ -30,20 +30,30 @@ def validate_model_name(model_name):
 
 
 def reduce_dimensionality(expression_df, Z_df):
-    '''Convert a dataframe of gene expression data from gene space to LV space
+    '''Convert a dataframe of gene expression data from gene space to the low
+    dimensional representation specified by Z_df
 
     Arguments
     ---------
     expression_df: pandas.DataFrame
-        The expression dataframe to move to LV space
+        The expression dataframe to transform to the low dimensional representation
+        specified by Z_df
     Z_df: pandas.dataframe
-        The matrix that does the conversion from gene space to LV space
+        The matrix that does the conversion from gene space to the low
+        dimensional representation specified by Z_df
 
     Returns
     -------
     reduced_matrix: numpy.array
-        The result from translating expression_df into LV space
+        The result from translating expression_df into the low dimensional representation
+        specified by Z_df
     '''
+
+    # Don't sort the genes in Z_df if they're already sorted
+    if not Z_df.index.is_monotonic:
+        # Ensure the gene symbols are in alphabetical order
+        Z_df = Z_df.sort_index()
+
     expression_df = expression_df[expression_df.index.isin(Z_df.index)]
 
     expression_df = expression_df.sort_index()
@@ -65,7 +75,7 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     Arguments
     ---------
     Z_df: pandas.DataFrame
-        The matrix to convert the expression data into the PLIER latent space
+        The matrix to convert the expression data into a lower dimensional representation
     healthy_df: pandas.DataFrame
         The dataframe containing healthy gene expression samples
     disease_df: pandas.DataFrame
@@ -108,13 +118,20 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     return train_X, train_Y, val_X, val_Y
 
 
-def load_data(args):
+def load_data(Z_file_path, healthy_file_path, disease_file_path, seed):
     '''Load and process the training data
 
     Arguments
     ---------
-    args: namespace
-        The command line arguments passed in to the script
+    Z_file_path: str or Path object
+        The path to the file containing the dataframe for transforming expression data
+        into a low dimensional representation
+    healthy_file_path: str or Path object
+        The path to the file containing healthy gene expression data
+    disease_file_path: str or Path object
+        The path to the file containing unhealthy gene expression data
+    seed: int
+        The random seed to be used in sampling validation data
 
     Returns
     -------
@@ -126,36 +143,50 @@ def load_data(args):
     val_X: numpy.array
         The gene expression data to be held out to evaluate model training
     val_Y: numpy.array
-        The labels for val_X
+        The labels corresponnding to whether each sample in val_X represents healthy
+        or unhealthy gene expression
     '''
-    Z_df = pandas.read_csv(args.Z_file_path, sep='\t')
+    Z_df = pandas.read_csv(Z_file_path, sep='\t')
 
-    # Ensure the gene symbols are in alphabetical order
-    Z_df = Z_df.sort_index()
+    healthy_df = pandas.read_csv(healthy_file_path, sep='\t')
+    disease_df = pandas.read_csv(disease_file_path, sep='\t')
 
-    healthy_df = pandas.read_csv(args.healthy_file_path, sep='\t')
-    disease_df = pandas.read_csv(args.disease_file_path, sep='\t')
-
-    return prepare_input_data(Z_df, healthy_df, disease_df, args.seed)
+    return prepare_input_data(Z_df, healthy_df, disease_df, seed)
 
 
-def train_model(train_X, train_Y, val_X, val_Y,
-                model_name=None, logdir=None, lr=None, epochs=None, batch_size=16):
-    # Create log directory
-    os.mkdir(logdir)
-    model_name = model_name
+def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
+                model_name, logdir=None, lr=1e-6, epochs=1000, batch_size=16,
+                ):
+
     validate_model_name(model_name)
 
     model = utils.get_model(model_name, logdir, lr)
 
+
+    callbacks = [tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                 tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
+                                                    save_weights_only=True,
+                                                    save_best_only=True)
+                ]
+    # Create log directory
+    if logdir is not None:
+        if not os.path.isdir(logdir):
+            os.makedirs(logdir)
+        callbacks = [tf.keras.callbacks.TensorBoard(log_dir=logdir),
+                     tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
+                     tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
+                                                        save_weights_only=True,
+                                                        save_best_only=True)
+                    ]
+
     model.fit(train_X, train_Y,
+              callbacks=callbacks,
               batch_size=batch_size,
               epochs=epochs,
-              callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir),
-                         tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
-                        ],
               validation_data=(val_X, val_Y),
+              verbose=0,
               )
+    return model
 
 
 if __name__ == '__main__':
@@ -171,8 +202,7 @@ if __name__ == '__main__':
                                                   'expression')
     parser.add_argument('disease_file_path', help='Path to the tsv containing unhealthy '
                                                   'gene expression data')
-    parser.add_argument('--logdir', help='The directory to print tensorboard logs to',
-                        default='../logs/{}'.format(timestamp))
+    parser.add_argument('--logdir', help='The directory to print tensorboard logs to')
     parser.add_argument('--model', help='The name of the model to be used. The models currently '
                         'available are: {}'.format(', '.join(model_list)), default='MLP')
     parser.add_argument('-s', '--seed', help='The seed to be used in random number generators',
@@ -186,6 +216,8 @@ if __name__ == '__main__':
                         default=1000)
     parser.add_argument('--batch_size', help='The number of training samples in a batch',
                         default=16)
+    parser.add_argument('--checkpoint_dir', help='The directory to save model weights to',
+                        default='../checkpoints')
 
     args = parser.parse_args()
 
@@ -196,5 +228,13 @@ if __name__ == '__main__':
 
     train_X, train_Y, val_X, val_Y = load_data(args)
 
-    train_model(train_X, train_Y, val_X, val_Y,
+    validate_model_name(args.model)
+
+    full_checkpoint_dir = os.path.join(args.checkpoint_dir, args.model)
+    if not os.path.isdir(full_checkpoint_dir):
+        os.makedirs(full_checkpoint_dir)
+
+    checkpoint_path = os.path.join(full_checkpoint_dir, 'checkpoint')
+
+    train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
                 args.model, args.logdir, args.learning_rate, args.epochs, args.batch_size)
