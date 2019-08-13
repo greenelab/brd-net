@@ -30,20 +30,30 @@ def validate_model_name(model_name):
 
 
 def reduce_dimensionality(expression_df, Z_df):
-    '''Convert a dataframe of gene expression data from gene space to LV space
+    '''Convert a dataframe of gene expression data from gene space to the low
+    dimensional representation specified by Z_df
 
     Arguments
     ---------
     expression_df: pandas.DataFrame
-        The expression dataframe to move to LV space
+        The expression dataframe to transform to the low dimensional representation
+        specified by Z_df
     Z_df: pandas.dataframe
-        The matrix that does the conversion from gene space to LV space
+        The matrix that does the conversion from gene space to the low
+        dimensional representation specified by Z_df
 
     Returns
     -------
     reduced_matrix: numpy.array
-        The result from translating expression_df into LV space
+        The result from translating expression_df into the low dimensional representation
+        specified by Z_df
     '''
+
+    # Don't sort the genes in Z_df if they're already sorted
+    if not Z_df.index.is_monotonic:
+        # Ensure the gene symbols are in alphabetical order
+        Z_df = Z_df.sort_index()
+
     expression_df = expression_df[expression_df.index.isin(Z_df.index)]
 
     expression_df = expression_df.sort_index()
@@ -65,7 +75,7 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     Arguments
     ---------
     Z_df: pandas.DataFrame
-        The matrix to convert the expression data into the PLIER latent space
+        The matrix to convert the expression data into a lower dimensional representation
     healthy_df: pandas.DataFrame
         The dataframe containing healthy gene expression samples
     disease_df: pandas.DataFrame
@@ -114,8 +124,8 @@ def load_data(Z_file_path, healthy_file_path, disease_file_path, seed):
     Arguments
     ---------
     Z_file_path: str or Path object
-        The path to the file containing the dataframe for moving expression data
-        into the PLIER latent space
+        The path to the file containing the dataframe for transforming expression data
+        into a low dimensional representation
     healthy_file_path: str or Path object
         The path to the file containing healthy gene expression data
     disease_file_path: str or Path object
@@ -137,9 +147,6 @@ def load_data(Z_file_path, healthy_file_path, disease_file_path, seed):
         or unhealthy gene expression
     '''
     Z_df = pandas.read_csv(Z_file_path, sep='\t')
-
-    # Ensure the gene symbols are in alphabetical order
-    Z_df = Z_df.sort_index()
 
     healthy_df = pandas.read_csv(healthy_file_path, sep='\t')
     disease_df = pandas.read_csv(disease_file_path, sep='\t')
