@@ -114,7 +114,7 @@ def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y):
     module = importlib.import_module(model_module)
     model = getattr(module, model_name)
 
-    model_instance = model()
+    model_instance = model(contamination=.5)
     model_instance.fit(train_X, train_Y)
 
     predictions = model_instance.predict(val_X)
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     parser.add_argument('disease_file_path', help='Path to the tsv containing unhealthy '
                                                   'gene expression data')
     parser.add_argument('--epochs', help='The maximum number of epochs to train the model for',
-                        default=1000)
+                        default=400)
     parser.add_argument('--checkpoint_dir', help='The directory to save model weights to',
                         default='../checkpoints')
     parser.add_argument('--logdir', help='The directory to log training progress to')
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_seeds', help='The number of times to randomly select a '
                         'validation dataset', default=10, type=int)
     parser.add_argument('--learning_rates', help='The learning rate or rates to use for each '
-                        'tensorflow model', nargs='*', type=float, default=[1e-3])
+                        'tensorflow model', nargs='*', type=float, default=[1e-5])
     parser.add_argument('--pyod_models', help='The case sensitive list of names of PyOD'
                         'models to evaluate. A list of all possible names can be found at'
                         'https://pyod.readthedocs.io/en/latest/pyod.html',
@@ -234,6 +234,8 @@ if __name__ == '__main__':
                                                                   seed)
             val_baseline = utils.get_larger_class_percentage(val_Y)
 
+            latent_var_count = train_X.shape[1]
+
             for lr in args.learning_rates:
                 for model in model_list:
                     val_acc = None
@@ -251,7 +253,8 @@ if __name__ == '__main__':
                                                                  val_X, val_Y)
                             seen_pyod_models.add((model, seed))
 
-                    losses.append((model, lr, seed, val_acc, val_auroc, val_baseline))
+                    losses.append((model, lr, seed, val_acc, val_auroc,
+                                   val_baseline, latent_var_count))
 
     results_df = pandas.DataFrame.from_records(losses, columns=['Model',
                                                                 'LR',
@@ -259,6 +262,7 @@ if __name__ == '__main__':
                                                                 'val_acc',
                                                                 'val_auroc',
                                                                 'val_baseline',
+                                                                'lv_count',
                                                                 ])
 
     results_df.to_csv(args.out_path)
