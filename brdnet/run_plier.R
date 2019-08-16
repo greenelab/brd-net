@@ -71,7 +71,6 @@ if (length(args) == 1){
 	k.estimate <- as.numeric(args[2])
 }
 
-
 plier.results <- PLIER(row.normalized[common.genes, ], allPaths, k=k.estimate)
 
 # Save PLIER loadings
