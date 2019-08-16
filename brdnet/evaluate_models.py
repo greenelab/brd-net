@@ -224,45 +224,47 @@ if __name__ == '__main__':
 
     Z_files = get_Z_files(args.Z_file_dir)
 
-    for Z_file_path in Z_files:
-        for seed in range(args.num_seeds):
-            # For now, we'll use the load_data function from classifier.py.
-            # In the future, we'll want to tinker with the Z df, so we'll implement a new one
-            train_X, train_Y, val_X, val_Y = classifier.load_data(Z_file_path,
-                                                                  args.healthy_file_path,
-                                                                  args.disease_file_path,
-                                                                  seed)
-            val_baseline = utils.get_larger_class_percentage(val_Y)
+    try:
+        for Z_file_path in Z_files:
+            for seed in range(args.num_seeds):
+                # For now, we'll use the load_data function from classifier.py.
+                # In the future, we'll want to tinker with the Z df, so we'll implement a new one
+                train_X, train_Y, val_X, val_Y = classifier.load_data(Z_file_path,
+                                                                      args.healthy_file_path,
+                                                                      args.disease_file_path,
+                                                                      seed)
+                val_baseline = utils.get_larger_class_percentage(val_Y)
 
-            latent_var_count = train_X.shape[1]
+                latent_var_count = train_X.shape[1]
 
-            for lr in args.learning_rates:
-                for model in model_list:
-                    val_acc = None
-                    val_auroc = None
+                for lr in args.learning_rates:
+                    for model in model_list:
+                        val_acc = None
+                        val_auroc = None
 
-                    if model_from_tf(model):
-                        val_acc, val_auroc = eval_tf_model(model, lr, train_X, train_Y, val_X,
-                                                           val_Y, args.checkpoint_dir, args.logdir,
-                                                           args.epochs, seed)
-                    # Don't rerun pyod models for different learning rates, because they don't have
-                    # an lr hyperparameter
-                    if (model, seed) not in seen_pyod_models:
-                        if model_from_pyod(model):
-                            val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y,
-                                                                 val_X, val_Y)
-                            seen_pyod_models.add((model, seed))
+                        if model_from_tf(model):
+                            val_acc, val_auroc = eval_tf_model(model, lr, train_X, train_Y, val_X,
+                                                               val_Y, args.checkpoint_dir,
+                                                               args.logdir, args.epochs, seed)
+                        # Don't rerun pyod models for different learning rates, because they don't
+                        # have an lr hyperparameter
+                        if (model, seed) not in seen_pyod_models:
+                            if model_from_pyod(model):
+                                val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y,
+                                                                     val_X, val_Y)
+                                seen_pyod_models.add((model, seed))
 
-                    losses.append((model, lr, seed, val_acc, val_auroc,
-                                   val_baseline, latent_var_count))
+                        losses.append((model, lr, seed, val_acc, val_auroc,
+                                       val_baseline, latent_var_count))
+    finally:
+        # If there is an error somewhere in the training process, save the results so far
+        results_df = pandas.DataFrame.from_records(losses, columns=['Model',
+                                                                    'LR',
+                                                                    'Seed',
+                                                                    'val_acc',
+                                                                    'val_auroc',
+                                                                    'val_baseline',
+                                                                    'lv_count',
+                                                                    ])
 
-    results_df = pandas.DataFrame.from_records(losses, columns=['Model',
-                                                                'LR',
-                                                                'Seed',
-                                                                'val_acc',
-                                                                'val_auroc',
-                                                                'val_baseline',
-                                                                'lv_count',
-                                                                ])
-
-    results_df.to_csv(args.out_path)
+        results_df.to_csv(args.out_path)
