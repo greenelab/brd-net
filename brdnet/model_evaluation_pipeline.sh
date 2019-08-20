@@ -6,6 +6,7 @@ NUM_PROCESSES=4
 
 PLIER_OUT='../data/plier_out'
 
+# K_VALS stores the different values of k (number of PCs) to be used by PLIER.
 # This array is intentionally reverse sorted for more efficient scheduling (you want
 # the longest jobs to be loaded first)
 K_VALS=(100 50 10)

@@ -18,7 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def get_Z_files(Z_dir):
     '''Get the path to all files in the given directory that look like they were
-    created by run_plier.R
+    created by run_plier.R i.e. they have the extension '_Z.tsv'
 
     Arguments
     ---------
