@@ -11,10 +11,11 @@ sys.path.append(brdnet_path + '/../brdnet')
 import subset_studies
 
 seven_columns = ['SRP{}.xxxx'.format(i) for i in range(7)]
-three_columns = ['SRP{}.xxxx'.format(i) for i in range(7,10)]
+three_columns = ['SRP{}.xxxx'.format(i) for i in range(7, 10)]
 
-seven_df = pandas.DataFrame(np.ones((3,7)), columns=seven_columns)
-three_df = pandas.DataFrame(np.ones((3,3)), columns=three_columns)
+three_df = pandas.DataFrame(np.ones((3, 3)), columns=three_columns)
+seven_df = pandas.DataFrame(np.ones((3, 7)), columns=seven_columns)
+
 
 @pytest.mark.parametrize('df1, df2, fraction',
                          [
@@ -25,8 +26,9 @@ three_df = pandas.DataFrame(np.ones((3,3)), columns=three_columns)
                           (seven_df, three_df, .3),
                           ])
 def test_rebalance(df1, df2, fraction):
-    balanced_df1, balanced_df2 = subset_studies.rebalance(df1, df2, fraction)
-    print(balanced_df1)
+    balanced_df1, balanced_df1, balanced_df2, balanced_df2 = subset_studies.rebalance(df1, df1,
+                                                                                      df2, df2,
+                                                                                      fraction)
 
     total_samples = len(balanced_df1.columns) + len(balanced_df2.columns)
 
