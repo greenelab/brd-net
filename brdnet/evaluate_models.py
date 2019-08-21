@@ -248,11 +248,11 @@ if __name__ == '__main__':
                                                                args.logdir, args.epochs, seed)
                         # Don't rerun pyod models for different learning rates, because they don't
                         # have an lr hyperparameter
-                        if (model, seed) not in seen_pyod_models:
+                        if (model, seed, Z_file_path) not in seen_pyod_models:
                             if model_from_pyod(model):
                                 val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y,
                                                                      val_X, val_Y)
-                                seen_pyod_models.add((model, seed))
+                                seen_pyod_models.add((model, seed, Z_file_path))
 
                         losses.append((model, lr, seed, val_acc, val_auroc,
                                        val_baseline, latent_var_count))
