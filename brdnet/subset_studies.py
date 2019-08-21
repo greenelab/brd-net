@@ -267,18 +267,18 @@ if __name__ == '__main__':
     subset_classifier_healthy_df = subset_df(classifier_healthy_df, args.term_ids)
     subset_classifier_disease_df = subset_df(classifier_disease_df, args.term_ids)
 
-    subset_plier_healthy_df, subset_plier_disease_df, \
-    subset_classifier_healthy_df, subset_classifier_disease_df = rebalance(subset_plier_healthy_df,
-                                                                           subset_plier_disease_df,
-                                                                      subset_classifier_healthy_df,
-                                                                      subset_classifier_disease_df)
+    subset_plier_healthy_df, subset_plier_disease_df, subset_classifier_healthy_df,\
+        subset_classifier_disease_df = rebalance(subset_plier_healthy_df,
+                                                 subset_plier_disease_df,
+                                                 subset_classifier_healthy_df,
+                                                 subset_classifier_disease_df)
 
     plier_healthy_path = args.plier_base + '_healthy.tsv'
     plier_disease_path = args.plier_base + '_disease.tsv'
     classifier_healthy_path = args.classifier_base + '_healthy.tsv'
     classifier_disease_path = args.classifier_base + '_disease.tsv'
 
-    subset_plier_healthy_df.to_csv(plier_healthy_path, sep='\t')
-    subset_plier_disease_df.to_csv(plier_disease_path, sep='\t')
-    subset_classifier_healthy_df.to_csv(classifier_healthy_path, sep='\t')
-    subset_classifier_disease_df.to_csv(classifier_disease_path, sep='\t')
+    subset_plier_healthy_df.to_csv(plier_healthy_path, sep='\t', index_label=False)
+    subset_plier_disease_df.to_csv(plier_disease_path, sep='\t', index_label=False)
+    subset_classifier_healthy_df.to_csv(classifier_healthy_path, sep='\t', index_label=False)
+    subset_classifier_disease_df.to_csv(classifier_disease_path, sep='\t', index_label=False)
