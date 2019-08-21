@@ -1,6 +1,7 @@
 # This script runs PLIER on the data from download_categorized_data.ipynb
 
 # CRAN dependencies
+library('argparser')
 library('dplyr')
 
 # Bioconductor dependencies
@@ -22,26 +23,24 @@ if (!require('PLIER',character.only = TRUE)) {
 }
 library('PLIER')
 
-data.dir <- '../data'
-
-args <- commandArgs(trailingOnly=TRUE)
-
-if(length(args) < 2){
-	print('As no value of k was passed in, it will be estimated from the data')
-} else if (length(args) > 2){
-	print('Usage: Rscript run_plier.R outdir [k]')
-	quit(status=1)
-} else if (length(args) == 0){
-	print('Usage: Rscript run_plier.R outdir [k]')
-	quit(status=1)
-}
+parser <- arg_parser('Run PLIER on gene expression data')
+parser <- add_argument(parser, 'plierHealthy',
+					   help='Path to a dataframe containing healthy gene expression data', 
+					   type='character')
+parser <- add_argument(parser, 'plierDisease', 
+					   help='Path to a dataframe containing unhealthy gene expression data', 
+					   type='character')
+parser <- add_argument(parser, 'outdir', help='The directory to print results to', type='character')
+parser <- add_argument(parser, '-k', help='The number of PLIER PCs to use', 
+					   type='numeric')
+args = parse_args(parser)
 
 # Set the random seed
 set.seed(42)
 
 # Load and combine data from download_categorized_data.ipynb
-disease.df <- read.table(file.path(data.dir, 'plier_disease.tsv'), sep = '\t', stringsAsFactors = FALSE, header = TRUE)
-healthy.df <- read.table(file.path(data.dir, 'plier_healthy.tsv'), sep = '\t', stringsAsFactors = FALSE, header = TRUE)
+disease.df <- read.table(args$plierDisease, sep = '\t', stringsAsFactors = FALSE, header = TRUE)
+healthy.df <- read.table(args$plierHealthy, sep = '\t', stringsAsFactors = FALSE, header = TRUE)
 
 # Combine the disease and healthy dataframes
 all.df <- merge.data.frame(healthy.df, disease.df, by='row.names')
@@ -56,19 +55,18 @@ data("svmMarkers")
 allPaths <- PLIER::combinePaths(bloodCellMarkersIRISDMAP, canonicalPathways, svmMarkers)
 
 all.matrix <- as.matrix(all.df)
-
 # This portion is based on the function PLIERNewData from  
 # https://github.com/greenelab/multi-plier/blob/master/util/plier_util.R 
 # Keep only genes found in both the id matrix and the prior knowlege gene sets
 common.genes <- PLIER::commonRows(all.matrix, allPaths)
 row.normalized <- PLIER::rowNorm(all.matrix)
 
-k.estimate = NaN
-out.dir <- args[1]
-if (length(args) == 1){
+k.estimate = NULL
+out.dir <- args$outdir
+if (is.null(args$k)){
 	k.estimate <- PLIER::num.pc(row.normalized[common.genes, ])
-} else if (length(args) == 2){
-	k.estimate <- as.numeric(args[2])
+} else{
+	k.estimate <- args$k
 }
 
 plier.results <- PLIER(row.normalized[common.genes, ], allPaths, k=k.estimate)
