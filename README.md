@@ -10,6 +10,7 @@ The goal of this project is to
 ## Method Overview
 The current plan is to use [PLIER](https://github.com/wgmao/PLIER) as a dimensionality reduction method to help the training of a model that
 predicts whether gene expression is healthy or unhealthy. 
+PLIER is well suited for this problem, because it uses prior biological knowlege to constrain the embedding.
 This classifier will then be used to make predictions about diseases, hopefully classifying their gene expression as unhealthy.
 Finally, some form of model interpretation will determine which of the biological networks used by PLIER most strongly indicate to the classifier that something is wrong.
 
@@ -58,7 +59,6 @@ The recommended running order is as follows:
 2. Run `download_categorized_data.ipynb` to download the expression data for the samples output by find\_studies.py
 3. If you want to filter your results based on ontology terms, run `subset_studies.py`.
 4. Run `model_evaluation_pipeline.sh`, which runs PLIER with different k values, then calls `evaluate_models.py` on the results
-
 
 ### Note
 The environment file explicitly references the channel for each dependency.
