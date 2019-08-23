@@ -7,6 +7,24 @@ The goal of this project is to
 1. train a model to differentiate between the gene expression of healthy individuals and individuals with a disease
 2. apply the model to rare diseases and find how gene expression differs in the disease state
 
+## Method Overview
+The current plan is to use [PLIER](https://github.com/wgmao/PLIER) as a dimensionality reduction method to help the training of a model that
+predicts whether gene expression is healthy or unhealthy. 
+This classifier will then be used to make predictions about diseases, hopefully classifying their gene expression as unhealthy.
+Finally, some form of model interpretation will determine which of the biological networks used by PLIER most strongly indicate to the classifier that something is wrong.
+
+Some patients don't ever receive a diagnosis explaining what their rare disease is, and a method like brd-net would help guide doctors and researchers to find the right diagnosis.
+
+## Data Generation
+As there is not a database (that we know of) that contains labels denoting whether samples in the [Sequence Read Archive](https://www.ncbi.nlm.nih.gov/sra)
+correspond to healthy or unhealthy gene expression, we generated such labels by hand.
+This hand labeling was done using the script `find_studies.py`, which queries [MetaSRA](http://metasra.biostat.wisc.edu/) to retrieve
+gene expression from all tissue samples in the SRA that have associated metadata.
+`find_studies.py` then provides an interface to write string matching rules to sort samples into 
+the categories 'healthy', 'disease', and 'unknown' based on their titles. 
+The expression data for the set of assigned samples from `find_studies` can be downloaded by running the notebook `download_categorized_data.ipynb`.
+
+
 ## Installation
 Most of the dependencies (for both R and python) are included in the file `environment.yml`.
 Upon [installing Anaconda](https://docs.anaconda.com/anaconda/install/), the dependencies can be installed and loaded with the following command:
