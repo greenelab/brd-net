@@ -33,7 +33,7 @@ parser <- add_argument(parser, 'plierDisease',
 parser <- add_argument(parser, 'outdir', help='The directory to print results to', type='character')
 parser <- add_argument(parser, '-k', help='The number of PLIER PCs to use', 
 					   type='numeric')
-args = parse_args(parser)
+args <- parse_args(parser)
 
 # Set the random seed
 set.seed(42)

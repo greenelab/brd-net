@@ -70,13 +70,15 @@ def get_model(model_name, logdir, lr):
 
     optimizer = tf.keras.optimizers.Adam(lr=lr)
 
-    auc = tf.keras.metrics.AUC()
+    auroc = tf.keras.metrics.AUC('ROC')
+    auprc = tf.keras.metrics.AUC('PR')
 
     model_instance.compile(optimizer=optimizer,
                            loss='binary_crossentropy',
-                           metrics=['accuracy', auc],
-                          )
+                           metrics=['accuracy', auroc, auprc],
+                           )
     return model_instance
+
 
 def reduce_dimensionality(expression_df, Z_df):
     '''Convert a dataframe of gene expression data from gene space to LV space
@@ -174,11 +176,11 @@ def get_validation_set(healthy_df, disease_df, validation_fraction=.2, random_se
                 and disease_samples_so_far >= disease_target_count):
             break
 
-
     healthy_train, healthy_val = get_val_and_train_subset(healthy_df, val_studies)
     disease_train, disease_val = get_val_and_train_subset(disease_df, val_studies)
 
     return healthy_train, healthy_val, disease_train, disease_val
+
 
 def get_val_and_train_subset(df, val_studies):
     ''' Get the subset of a dataframe whose column names contain the strings in val_studies
