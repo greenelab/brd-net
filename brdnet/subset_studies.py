@@ -92,7 +92,158 @@ def get_study_counts(sample_list):
     return collections.Counter(studies)
 
 
+def move_plier_to_classifier(plier_study_counter, classifier_study_counter, plier_target):
+    '''Move studies from the plier set to the classifier set if doing so causes the total
+    number of samples in the plier set to be closer to plier_target
+
+    Arguments
+    ---------
+    plier_study_counter: collections.Counter
+        A Counter containing all the studies in the plier set and how many samples each one has
+    classifier_study_counter: collections.Counter
+        A Counter containing all the studies in the classifier set and how many
+        samples each one has
+    plier_target: int
+        The ideal number of samples to be in the plier set
+
+    Returns
+    -------
+    plier_study_counter: collections.Counter
+        The parameter plier_study_counter, potentially updated by moving samples to
+        classifier_study_counter
+    classifier_study_counter: collections.Counter
+        The parameter classifier_study_counter, potentially updated by moving samples
+        to plier_study_counter
+    plier_sample_count: int
+        The number of samples across all studies in the plier set
+    '''
+    # We have to cast these as lists because python hates it when you modify a dictionary
+    # as you are iterating over it
+    plier_study_list = list(plier_study_counter.keys())
+    for study in plier_study_list:
+        # If we already have too few samples from plier, don't look to move any over
+        plier_sample_count = sum(plier_study_counter.values())
+        error = abs(plier_target - plier_sample_count)
+        if plier_sample_count < plier_target:
+            break
+
+        if abs((plier_sample_count - plier_study_counter[study]) - plier_target) < error:
+            # Move study from plier_study_counter to classifier_study_counter
+            classifier_study_counter[study] = plier_study_counter[study]
+            del plier_study_counter[study]
+
+    return plier_study_counter, classifier_study_counter, plier_sample_count
+
+
+def move_classifier_to_plier(plier_study_counter, classifier_study_counter,
+                             plier_target, classifier_target):
+    '''Move studies from classifier to plier if doing so causes the total number of samples in
+    the plier set to be closer to plier_target
+
+    Arguments
+    ---------
+    plier_study_counter: collections.Counter
+        A Counter containing all the studies in the plier set and how many samples each one has
+    classifier_study_counter: collections.Counter
+        A Counter containing all the studies in the classifier set and how many
+        samples each one has
+    plier_target: int
+        The ideal number of samples to be in the plier set
+    classifier_target: int
+        The ideal number of samples to be in the classifier set
+
+    Returns
+    -------
+    plier_study_counter: collections.Counter
+        The parameter plier_study_counter, potentially updated by moving samples to
+        classifier_study_counter
+    classifier_study_counter: collections.Counter
+        The parameter classifier_study_counter, potentially updated by moving samples
+        to plier_study_counter
+    plier_sample_count: int
+        The number of samples across all studies in the plier set
+    '''
+
+    classifier_study_list = list(classifier_study_counter.keys())
+    for study in classifier_study_list:
+        # If we already have too few samples from classifier, don't look to move any over
+        classifier_sample_count = sum(classifier_study_counter.values())
+        plier_sample_count = sum(plier_study_counter.values())
+        error = abs(plier_target - plier_sample_count)
+        if classifier_sample_count < classifier_target:
+            break
+
+        error_if_moved = abs((classifier_sample_count - classifier_study_counter[study]) -
+                             classifier_target)
+        if error_if_moved < error:
+            # Move study from plier_study_counter to classifier_study_counter
+            plier_study_counter[study] = classifier_study_counter[study]
+            del classifier_study_counter[study]
+
+    return plier_study_counter, classifier_study_counter, plier_sample_count
+
+
+def update_study_counters(plier_study_counter, classifier_study_counter,
+                          plier_target, classifier_target):
+    '''Move studies from the plier set to the classifier set and vice versa in such a way that
+    the total number of samples in the plier set is closer to the target number
+
+    Arguments
+    ---------
+    plier_study_counter: collections.Counter
+        A Counter containing all the studies in the plier set and how many samples each one has
+    classifier_study_counter: collections.Counter
+        A Counter containing all the studies in the classifier set and how many
+        samples each one has
+    plier_target: int
+        The ideal number of samples to be in the plier set
+    classifier_target: int
+        The ideal number of samples to be in the classifier set
+
+    Returns
+    -------
+    plier_study_counter: collections.Counter
+        The parameter plier_study_counter, potentially updated by moving samples to
+        classifier_study_counter
+    classifier_study_counter: collections.Counter
+        The parameter classifier_study_counter, potentially updated by moving samples
+        to plier_study_counter
+    plier_sample_count: int
+        The number of samples across all studies in the plier set
+    '''
+    updated_counts = move_plier_to_classifier(plier_study_counter, classifier_study_counter,
+                                              plier_target)
+    plier_study_counter, classifier_study_counter, plier_sample_count = updated_counts
+
+    updated_counts = move_classifier_to_plier(plier_study_counter, classifier_study_counter,
+                                              plier_target, classifier_target)
+    plier_study_counter, classifier_study_counter, plier_sample_count = updated_counts
+
+    return plier_study_counter, classifier_study_counter, plier_sample_count
+
+
 def balance_study_counters(plier_study_counter, classifier_study_counter, fraction):
+    '''Balance the allocation of samples between two sets to make the plier set
+    have as close to a given fraction of the total number of samples as possible
+
+    Arguments
+    ---------
+    plier_study_counter: collections.Counter
+        A Counter object mapping the list of studies to be used in plier to the number of
+        samples that each study has
+    classifier_study_counter: collections.Counter
+        A Counter object mapping the list of studies to be used in the classifier to the number of
+        samples that each study has
+    fraction: float
+        The target ratio of samples to be used in PLIER to the total number of samples
+
+    Returns
+    -------
+    plier_study_list: list of strs
+        The list of studies to be used in plier
+    classifier_study_list: list of strs
+        The list of studies to be used in the classifier
+    '''
     done_balancing = False
 
     plier_sample_count = sum(plier_study_counter.values())
@@ -106,38 +257,12 @@ def balance_study_counters(plier_study_counter, classifier_study_counter, fracti
     while not done_balancing:
         old_plier_count = plier_sample_count
 
-        error = abs(plier_target - plier_sample_count)
-
-        # We have to cast these as lists because python hates it when you modify a dictionary
-        # as you are iterating over it
-        plier_study_list = list(plier_study_counter.keys())
-        for study in plier_study_list:
-            # If we already have too few samples from plier, don't look to move any over
-            plier_sample_count = sum(plier_study_counter.values())
-            error = abs(plier_target - plier_sample_count)
-            if plier_sample_count < plier_target:
-                break
-
-            if abs((plier_sample_count - plier_study_counter[study]) - plier_target) < error:
-                # Move study from plier_study_counter to classifier_study_counter
-                classifier_study_counter[study] = plier_study_counter[study]
-                del plier_study_counter[study]
-
-        classifier_study_list = list(classifier_study_counter.keys())
-        for study in classifier_study_list:
-            # If we already have too few samples from classifier, don't look to move any over
-            classifier_sample_count = sum(classifier_study_counter.values())
-            plier_sample_count = sum(plier_study_counter.values())
-            error = abs(plier_target - plier_sample_count)
-            if classifier_sample_count < classifier_target:
-                break
-
-            error_if_moved = abs((classifier_sample_count - classifier_study_counter[study]) -
-                                 classifier_target)
-            if error_if_moved < error:
-                # Move study from plier_study_counter to classifier_study_counter
-                plier_study_counter[study] = classifier_study_counter[study]
-                del classifier_study_counter[study]
+        # We assign the parameters to updated_counts to avoid ugly formatting, there is no
+        # technical reason to put the tuple unpacking later
+        updated_counts = update_study_counters(plier_study_counter,
+                                               classifier_study_counter,
+                                               plier_target, classifier_target)
+        plier_study_counter, classifier_study_counter, plier_sample_count = updated_counts
 
         # If we didn't move any samples between the two sets then we're done balancing
         if old_plier_count == plier_sample_count:
@@ -164,7 +289,6 @@ def get_df_subset_by_study(df, studies_to_keep):
     filtered_samples: pandas.DataFrame
         The subset of df to keep
     '''
-    # TODO studies_to_keep is zero, find out why
     studies_regex = '|'.join(studies_to_keep)
     filtered_samples = df.filter(regex=studies_regex)
     return filtered_samples
