@@ -31,7 +31,7 @@ running the notebook [download\_categorized\_data.ipynb](brdnet/download_categor
 
 
 ## Installation
-Most of the dependencies (for both R and python) are included in the file [environment.yml](brdnet/environment.yml).
+Most of the dependencies (for both R and python) are included in the file [environment.yml](environment.yml).
 Upon [installing Anaconda](https://docs.anaconda.com/anaconda/install/), the dependencies can be installed and loaded with the following command:
 
 ```sh
@@ -62,7 +62,7 @@ The recommended running order is as follows:
 1. Run [find\_studies.py](brdnet/find_studies.py) to label samples from studies which contain adult gene expression that is clearly healthy or unhealthy
 2. Run [download\_categorized\_data.ipynb](brdnet/download_categorized_data.ipynb) to download the expression data for the samples output by find\_studies.py
 3. If you want to filter your results based on ontology terms, run [subset\_studies.py](brdnet/subset_studies.py).
-4. Run [model\_evaluation\_pipeline.sh](model_evaluation_pipeline.sh), which runs PLIER with different k values, then calls [evaluate\_models.py](brdnet/evaluate_models.py) on the results
+4. Run [model\_evaluation\_pipeline.sh](brdnet/model_evaluation_pipeline.sh), which runs PLIER with different k values, then calls [evaluate\_models.py](brdnet/evaluate_models.py) on the results
 
 ### Note
 The environment file explicitly references the channel for each dependency.
