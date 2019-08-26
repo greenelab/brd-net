@@ -22,15 +22,16 @@ The [Sequence Read Archive](https://www.ncbi.nlm.nih.gov/sra) is a large reposit
 While it is possible to filter based on the type of sequence or species, there is not a database (that we know of) that contains labels denoting whether samples
 correspond to healthy or unhealthy gene expression. 
 As a result, we had to construct such a dataset by hand.
-This hand labeling was done using the script [find\_studies.py](find_studies.py/), which queries [MetaSRA](http://metasra.biostat.wisc.edu/) to retrieve
+This hand labeling was done using the script [find\_studies.py](brdnet/find_studies.py), which queries [MetaSRA](http://metasra.biostat.wisc.edu/) to retrieve
 gene expression from all tissue samples in the SRA that have associated metadata.
-[find\_studies.py](find_studies.py/) then provides an interface to write string matching rules to sort samples into 
+[find\_studies.py](brdnet/find_studies.py) then provides an interface to write string matching rules to sort samples into 
 the categories 'healthy', 'disease', and 'unknown' based on their titles. 
-The expression data for the set of assigned samples from [find\_studies.py](find_studies.py/) can be downloaded by running the notebook [download\_categorized\_data.ipynb](download_categorized_data.ipynb/).
+The expression data for the set of assigned samples from [find\_studies.py](brdnet/find_studies.py) can be downloaded by 
+running the notebook [download\_categorized\_data.ipynb](brdnet/download_categorized_data.ipynb).
 
 
 ## Installation
-Most of the dependencies (for both R and python) are included in the file [environment.yml](environment.yml/).
+Most of the dependencies (for both R and python) are included in the file [environment.yml](brdnet/environment.yml).
 Upon [installing Anaconda](https://docs.anaconda.com/anaconda/install/), the dependencies can be installed and loaded with the following command:
 
 ```sh
@@ -58,10 +59,10 @@ python -m ipykernel install --user --name brdnet --display-name "brdnet"
 Because some scripts depend on the output of others, running them in order is important when starting from scratch.
 The recommended running order is as follows:
 
-1. Run [find\_studies.py](find_studies.py/) to label samples from studies which contain adult gene expression that is clearly healthy or unhealthy
-2. Run [download\_categorized\_data.ipynb](download_categorized_data.ipynb/) to download the expression data for the samples output by find\_studies.py
-3. If you want to filter your results based on ontology terms, run [subset\_studies.py](subset_studies.py/).
-4. Run [model\_evaluation\_pipeline.sh](model_evaluation_pipeline.sh/), which runs PLIER with different k values, then calls [evaluate\_models.py](evaluate_models.py/) on the results
+1. Run [find\_studies.py](brdnet/find_studies.py) to label samples from studies which contain adult gene expression that is clearly healthy or unhealthy
+2. Run [download\_categorized\_data.ipynb](brdnet/download_categorized_data.ipynb) to download the expression data for the samples output by find\_studies.py
+3. If you want to filter your results based on ontology terms, run [subset\_studies.py](brdnet/subset_studies.py).
+4. Run [model\_evaluation\_pipeline.sh](model_evaluation_pipeline.sh), which runs PLIER with different k values, then calls [evaluate\_models.py](brdnet/evaluate_models.py) on the results
 
 ### Note
 The environment file explicitly references the channel for each dependency.
