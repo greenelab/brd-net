@@ -6,6 +6,7 @@ channels:
 dependencies:
     - r::r=3.5.1
     - r::r-xml2=1.2.0
+    - conda-forge::r-argparser=0.4
     - conda-forge::r-devtools=2.1.0
     - conda-forge::r-dplyr=0.8.3
     - conda-forge::r-glmnet=2.0.16
@@ -23,6 +24,7 @@ dependencies:
     - conda-forge::python=3.7
     - conda-forge::scikit-learn=0.21.3
     - conda-forge::tqdm=4.32.2
+    - conda-forge::umap-learn=0.3.10
     - bioconda::bioconductor-recount=1.8.1
     - bioconda::bioconductor-qvalue=2.14.0
     - pip=19.2.1

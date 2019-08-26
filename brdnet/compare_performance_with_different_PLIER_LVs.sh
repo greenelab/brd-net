@@ -16,7 +16,7 @@ K_VALS=(100 50 10)
 # The code before the pipe prints all the values of K on its own line
 # The code after the pipe tells bash to run run_plier.R once for each value of K,
 # But using no more than NUM_PROCESSES threads to do so
-printf "$PLIER_OUT %s\n" "${K_VALS[@]}" | xargs -n 2 --max-procs=$NUM_PROCESSES Rscript run_plier.R 2> /dev/null
+printf "../data/plier_healthy.tsv ../data/plier_disease.tsv $PLIER_OUT -k %s\n" "${K_VALS[@]}" | xargs -n 5 --max-procs=$NUM_PROCESSES Rscript run_plier.R 2> /dev/null
 
 echo "All run_plier instances completed"
 
