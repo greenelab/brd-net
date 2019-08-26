@@ -13,6 +13,7 @@ import tensorflow as tf
 import models
 import utils
 
+
 def write_invalid_model_error(model_name):
     '''Write the error message for an invalid model, model_name'''
     sys.stderr.write('Error: models.py does not contain the model {}\n'.format(model_name))
@@ -23,7 +24,7 @@ def write_invalid_model_error(model_name):
 def validate_model_name(model_name):
     '''Check whether the model name supplied by the user exists in models.py'''
     try:
-        model = getattr(models, model_name)
+        getattr(models, model_name)
     except AttributeError:
         write_invalid_model_error(model_name)
         sys.exit()
@@ -162,12 +163,11 @@ def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
 
     model = utils.get_model(model_name, logdir, lr)
 
-
     callbacks = [tf.keras.callbacks.ReduceLROnPlateau(min_lr=1e-11),
                  tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                     save_weights_only=True,
                                                     save_best_only=True)
-                ]
+                 ]
     # Create log directory
     if logdir is not None:
         if not os.path.isdir(logdir):
@@ -177,7 +177,7 @@ def train_model(train_X, train_Y, val_X, val_Y, checkpoint_path,
                      tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                         save_weights_only=True,
                                                         save_best_only=True)
-                    ]
+                     ]
 
     model.fit(train_X, train_Y,
               callbacks=callbacks,
@@ -226,7 +226,8 @@ if __name__ == '__main__':
     numpy.random.seed(args.seed)
     tf.compat.v1.set_random_seed(args.seed)
 
-    train_X, train_Y, val_X, val_Y = load_data(args)
+    train_X, train_Y, val_X, val_Y = load_data(args.Z_file_path, args.healthy_file_path,
+                                               args.disease_file_path, args.seed)
 
     validate_model_name(args.model)
 
