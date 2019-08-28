@@ -4,6 +4,7 @@ and unhealthy gene expression
 import argparse
 import importlib
 import os
+import sys
 
 import pandas
 import sklearn
@@ -82,7 +83,7 @@ def model_from_tf(model_name):
         return False
 
 
-def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y):
+def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y, val_studies):
     '''Train a model from PyOD on train_X and train_Y, then evaluate its performance
     on val_X and val_Y
 
@@ -100,6 +101,8 @@ def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y):
     val_Y: numpy.array
         The labels corresponding to whether each sample in val_X represents healthy or
         unhealthy gene expression
+    val_studies: list of strs
+        The list containing which study each sample of val_X is from
 
     Returns
     -------
@@ -108,6 +111,10 @@ def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y):
     val_auroc: float
         The area under the receiver operating characteristic curve based on the
         model's decision function on val_X
+    val_aupr: float
+        The area under the precision recall curve based on the model's decision function on val_X
+    study_results: dict
+        A dictionary mapping study ids to the model's performance on that study
     '''
     # Import the model module from pyod
     model_module = 'pyod.models.{}'.format(model_name.lower())
@@ -121,14 +128,44 @@ def eval_pyod_model(model_name, train_X, train_Y, val_X, val_Y):
 
     val_acc = utils.calculate_accuracy(predictions, val_Y)
     val_auroc = sklearn.metrics.roc_auc_score(val_Y, model_instance.decision_function(val_X))
+    val_aupr = sklearn.metrics.average_precision_score(val_Y,
+                                                       model_instance.decision_function(val_X))
 
-    return val_acc, val_auroc
+    unique_studies = list(set(val_studies))
+
+    study_results = {}
+    for study in unique_studies:
+        study_indices = [idx for idx, val_study in enumerate(val_studies) if study == val_study]
+        study_data = val_X[study_indices]
+        study_Y = val_Y[study_indices]
+
+        # TODO this is identical to the eval code outside the for loop; refactor to a function
+        predictions = model_instance.predict(study_data)
+        val_acc = utils.calculate_accuracy(predictions, study_Y)
+
+        try:
+            raw_scores = model_instance.decision_function(study_data)
+            val_auroc = sklearn.metrics.roc_auc_score(study_Y, raw_scores)
+            val_aupr = sklearn.metrics.average_precision_score(study_Y, raw_scores)
+
+            result_dict = {'val_loss': None, 'val_acc': val_acc,
+                           'val_auroc': val_auroc, 'val_aupr': val_aupr}
+
+            study_results[study] = result_dict
+        except ValueError:
+            sys.stderr.write('Warning: study {} only has one class, so auroc and aupr will not be '
+                             'recorded\n'.format(study))
+            result_dict = {'val_loss': None, 'val_acc': val_acc,
+                           'val_auroc': None, 'val_aupr': None}
+            study_results[study] = result_dict
+
+    return val_acc, val_auroc, val_aupr, study_results
 
 
-def eval_tf_model(model_name, lr, train_X, train_Y, val_X, val_Y, checkpoint_dir,
-                  logdir, epochs, seed):
-    '''Train a model from models.py on train_X and train_Y, then evaluate its performance
-    on val_X and val_Y
+def train_tf_model(model_name, lr, train_X, train_Y, val_X, val_Y, checkpoint_dir,
+                   logdir, epochs, seed):
+    '''Train a model from models.py on train_X and train_Y, and write the best version
+    to a file in checkpoint_dir
 
     Arguments
     ---------
@@ -174,14 +211,87 @@ def eval_tf_model(model_name, lr, train_X, train_Y, val_X, val_Y, checkpoint_dir
                            model_name=model_name, lr=lr,
                            epochs=int(epochs))
 
+    return checkpoint_path
+
+
+def eval_tf_model(model_name, lr, val_X, val_Y, checkpoint_path, logdir):
+    ''' Evaluate the performance of the model saved at checkpoint_path on the full dataset
+
+    Arguments
+    ---------
+    model_name: str
+        The name of the model to be imported from models.py
+    lr: float
+        The size of each update step made by the optimizer
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model performance
+    val_Y: numpy.array
+        The labels corresponding to whether each sample in val_X represents healthy or
+        unhealthy gene expression
+    checkpoint_path: str
+        The path to the weights for the best performing iteration of the model
+    logdir: str or Path or None
+        The directory to save tensorboard logs to
+
+    Returns
+    -------
+    val_acc: float
+        The accuracy the model achieved in predicting val_Y from val_X
+    val_auroc: float
+        The area under the receiver operating characteristic curve based on the
+        model's decision function on val_X
+    '''
     # Load model
-    untrained_model = utils.get_model(model, logdir, lr)
+    model = utils.get_model(model_name, logdir, lr)
+    model.load_weights(checkpoint_path)
 
-    val_loss, val_acc, val_auroc = untrained_model.evaluate(val_X, val_Y)
+    val_loss, val_acc, val_auroc, val_aupr = model.evaluate(val_X, val_Y)
+    return val_acc, val_auroc, val_aupr
 
-    untrained_model.load_weights(checkpoint_path)
-    val_loss, val_acc, val_auroc = untrained_model.evaluate(val_X, val_Y)
-    return val_acc, val_auroc
+
+def eval_tf_model_studies(model_name, lr, val_X, val_Y, val_studies, checkpoint_path, logdir):
+    ''' Evaluate the performance of the model saved at checkpoint_path on each study individually
+
+    Arguments
+    ---------
+    model_name: str
+        The name of the model to be imported from models.py
+    lr: float
+        The size of each update step made by the optimizer
+    val_X: numpy.array
+        The gene expression data to be held out to evaluate model performance
+    val_Y: numpy.array
+        The labels corresponding to whether each sample in val_X represents healthy or
+        unhealthy gene expression
+    val_studies: list of strs
+        The list containing which study each sample of val_X is from
+    checkpoint_path: str
+        The path to the weights for the best performing iteration of the model
+    logdir: str or Path or None
+        The directory to save tensorboard logs to
+
+    Returns
+    -------
+    study_to_metrics: dict
+        A dictionary mapping study ids to the model's performance on that study
+    '''
+    model = utils.get_model(model_name, logdir, lr)
+    model.load_weights(checkpoint_path)
+
+    unique_studies = list(set(val_studies))
+
+    study_to_metrics = {}
+    for study in unique_studies:
+        study_indices = [idx for idx, val_study in enumerate(val_studies) if study == val_study]
+        study_data = val_X[study_indices]
+        study_Y = val_Y[study_indices]
+
+        val_loss, val_acc, val_auroc, val_aupr = model.evaluate(study_data, study_Y)
+        result_dict = {'val_loss': val_loss, 'val_acc': val_acc,
+                       'val_auroc': val_auroc, 'val_aupr': val_aupr}
+        study_to_metrics[study] = result_dict
+
+    return study_to_metrics
 
 
 if __name__ == '__main__':
@@ -201,6 +311,9 @@ if __name__ == '__main__':
     parser.add_argument('--logdir', help='The directory to log training progress to')
     parser.add_argument('--out_path', help='The file to print the csv containing the results to',
                         default='../results/model_eval_results.csv')
+    parser.add_argument('--study_out_path', help='The file to print the csv containing results '
+                                                 'aggregated at the study level',
+                        default='../results/model_eval_study_results.csv')
     parser.add_argument('--num_seeds', help='The number of times to randomly select a '
                         'validation dataset', default=10, type=int)
     parser.add_argument('--learning_rates', help='The learning rate or rates to use for each '
@@ -219,6 +332,7 @@ if __name__ == '__main__':
     model_list.extend(utils.get_model_list())
 
     losses = []
+    study_losses = []
 
     seen_pyod_models = set()
 
@@ -227,12 +341,10 @@ if __name__ == '__main__':
     try:
         for Z_file_path in Z_files:
             for seed in range(args.num_seeds):
-                # For now, we'll use the load_data function from classifier.py.
-                # In the future, we'll want to tinker with the Z df, so we'll implement a new one
-                train_X, train_Y, val_X, val_Y = classifier.load_data(Z_file_path,
-                                                                      args.healthy_file_path,
-                                                                      args.disease_file_path,
-                                                                      seed)
+                data = utils.load_data_and_studies(Z_file_path, args.healthy_file_path,
+                                                   args.disease_file_path, seed)
+                train_X, train_Y, val_X, val_Y, train_studies, val_studies = data
+
                 val_baseline = utils.get_larger_class_percentage(val_Y)
 
                 latent_var_count = train_X.shape[1]
@@ -241,21 +353,51 @@ if __name__ == '__main__':
                     for model in model_list:
                         val_acc = None
                         val_auroc = None
+                        val_aupr = None
+                        study_results = None
 
                         if model_from_tf(model):
-                            val_acc, val_auroc = eval_tf_model(model, lr, train_X, train_Y, val_X,
-                                                               val_Y, args.checkpoint_dir,
-                                                               args.logdir, args.epochs, seed)
+
+                            path_to_model = train_tf_model(model, lr, train_X, train_Y, val_X,
+                                                           val_Y, args.checkpoint_dir,
+                                                           args.logdir, args.epochs, seed)
+
+                            val_acc, val_auroc, val_aupr = eval_tf_model(model, lr, val_X, val_Y,
+                                                                         path_to_model,
+                                                                         args.logdir)
+
+                            study_results = eval_tf_model_studies(model, lr, val_X, val_Y,
+                                                                  val_studies, path_to_model,
+                                                                  args.logdir)
+
+                            # TODO make eval_pyod model studiesj
+
                         # Don't rerun pyod models for different learning rates, because they don't
                         # have an lr hyperparameter
                         if (model, seed, Z_file_path) not in seen_pyod_models:
                             if model_from_pyod(model):
-                                val_acc, val_auroc = eval_pyod_model(model, train_X, train_Y,
-                                                                     val_X, val_Y)
+                                metrics = eval_pyod_model(model, train_X, train_Y, val_X, val_Y,
+                                                          val_studies)
+                                val_acc, val_auroc, val_aupr, study_results = metrics
+
                                 seen_pyod_models.add((model, seed, Z_file_path))
 
-                        losses.append((model, lr, seed, val_acc, val_auroc,
+                        losses.append((model, lr, seed, val_acc, val_auroc, val_aupr,
                                        val_baseline, latent_var_count))
+                        for study in study_results:
+                            study_indices = [idx for idx, val_study in enumerate(val_studies) if
+                                             study == val_study]
+                            study_Y = val_Y[study_indices]
+                            study_baseline = utils.get_larger_class_percentage(study_Y)
+
+                            val_loss = study_results[study]['val_loss']
+                            val_acc = study_results[study]['val_acc']
+                            val_auroc = study_results[study]['val_auroc']
+                            val_aupr = study_results[study]['val_aupr']
+                            study_losses.append((model, study, lr, seed, val_acc,
+                                                 val_auroc, val_aupr, study_baseline,
+                                                 latent_var_count))
+
     finally:
         # If there is an error somewhere in the training process, save the results so far
         results_df = pandas.DataFrame.from_records(losses, columns=['Model',
@@ -263,8 +405,20 @@ if __name__ == '__main__':
                                                                     'Seed',
                                                                     'val_acc',
                                                                     'val_auroc',
+                                                                    'val_aupr',
                                                                     'val_baseline',
                                                                     'lv_count',
                                                                     ])
+        study_results_df = pandas.DataFrame.from_records(study_losses, columns=['Model',
+                                                                                'Study',
+                                                                                'LR',
+                                                                                'Seed',
+                                                                                'val_acc',
+                                                                                'val_auroc',
+                                                                                'val_aupr',
+                                                                                'val_baseline',
+                                                                                'lv_count',
+                                                                                ])
 
         results_df.to_csv(args.out_path)
+        study_results_df.to_csv(args.study_out_path)
