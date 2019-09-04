@@ -4,10 +4,13 @@ and unhealthy gene expression
 import argparse
 import importlib
 import os
+import random
 import sys
 
+import numpy
 import pandas
 import sklearn
+import tensorflow as tf
 
 import classifier
 import models
@@ -440,8 +443,13 @@ if __name__ == '__main__':
     try:
         for Z_file_path in Z_files:
             for seed in range(args.num_seeds):
+                # Set random seeds
+                random.seed(seed)
+                numpy.random.seed(seed)
+                tf.compat.v1.set_random_seed(seed)
+
                 data = utils.load_data_and_studies(Z_file_path, args.healthy_file_path,
-                                                   args.disease_file_path, seed)
+                                                   args.disease_file_path)
                 train_X, train_Y, val_X, val_Y, train_studies, val_studies = data
 
                 val_baseline = utils.get_larger_class_percentage(val_Y)

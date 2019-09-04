@@ -68,7 +68,7 @@ def get_study_list(expression_df):
     return studies
 
 
-def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
+def prepare_input_data(Z_df, healthy_df, disease_df):
     '''Convert the dataframes from run_plier and download_categorized_data into
     training and validation datasets with accompanying labels
 
@@ -80,8 +80,6 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
         The dataframe containing healthy gene expression samples
     disease_df: pandas.DataFrame
         The dataframe containin unhealthy gene expression samples
-    random_seed: int
-        The seed to be used by utils.get_validation_set
 
     Returns
     -------
@@ -102,8 +100,7 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     # TODO stop val fraction from being hardcoded
     healthy_train, healthy_val, disease_train, disease_val = get_validation_set(healthy_df,
                                                                                 disease_df,
-                                                                                .2,
-                                                                                random_seed)
+                                                                                .2)
     healthy_train_studies = get_study_list(healthy_train)
     healthy_val_studies = get_study_list(healthy_val)
     disease_train_studies = get_study_list(disease_train)
@@ -134,7 +131,7 @@ def prepare_input_data(Z_df, healthy_df, disease_df, random_seed):
     return train_X, train_Y, val_X, val_Y, train_studies, val_studies
 
 
-def load_data_and_studies(Z_file_path, healthy_file_path, disease_file_path, seed):
+def load_data_and_studies(Z_file_path, healthy_file_path, disease_file_path):
     '''Load and process the training data
 
     Arguments
@@ -146,8 +143,6 @@ def load_data_and_studies(Z_file_path, healthy_file_path, disease_file_path, see
         The path to the file containing healthy gene expression data
     disease_file_path: str or Path object
         The path to the file containing unhealthy gene expression data
-    seed: int
-        The random seed to be used in sampling validation data
 
     Returns
     -------
@@ -171,7 +166,7 @@ def load_data_and_studies(Z_file_path, healthy_file_path, disease_file_path, see
     healthy_df = pandas.read_csv(healthy_file_path, sep='\t')
     disease_df = pandas.read_csv(disease_file_path, sep='\t')
 
-    return prepare_input_data(Z_df, healthy_df, disease_df, seed)
+    return prepare_input_data(Z_df, healthy_df, disease_df)
 
 
 def get_larger_class_percentage(Y):
@@ -255,7 +250,7 @@ def get_study_counter(df):
     return counter
 
 
-def get_validation_set(healthy_df, disease_df, validation_fraction=.2, random_seed=42):
+def get_validation_set(healthy_df, disease_df, validation_fraction=.2):
     '''Split a dataframe into training and validation data by extracting studies
        that contain a certain fraction of the samples
 
@@ -271,8 +266,6 @@ def get_validation_set(healthy_df, disease_df, validation_fraction=.2, random_se
            information to be used. disease_df contains samples with unhealthy gene expression
        validation_fraction: float
            The fraction of the dataset to be pulled out as validation data
-       random_seed: int
-           The seed to use when shuffling the study list
 
        Returns
        -------
