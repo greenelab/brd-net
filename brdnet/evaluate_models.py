@@ -400,6 +400,8 @@ def train_and_evaluate_model(model, lr, train_X, train_Y, val_X, val_Y, val_stud
 
 
 if __name__ == '__main__':
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('Z_file_dir', help='Path to the directory containing '
@@ -412,13 +414,13 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', help='The maximum number of epochs to train the model for',
                         default=400)
     parser.add_argument('--checkpoint_dir', help='The directory to save model weights to',
-                        default='../checkpoints')
+                        default='{}/../checkpoints'.format(script_dir))
     parser.add_argument('--logdir', help='The directory to log training progress to')
     parser.add_argument('--out_path', help='The file to print the csv containing the results to',
-                        default='../results/model_eval_results.csv')
+                        default='{}/../results/model_eval_results.csv'.format(script_dir))
     parser.add_argument('--study_out_path', help='The file to print the csv containing results '
                                                  'aggregated at the study level',
-                        default='../results/model_eval_study_results.csv')
+                        default='{}/../results/model_eval_study_results.csv'.format(script_dir))
     parser.add_argument('--num_seeds', help='The number of times to randomly select a '
                         'validation dataset', default=10, type=int)
     parser.add_argument('--learning_rates', help='The learning rate or rates to use for each '
