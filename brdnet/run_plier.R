@@ -33,6 +33,9 @@ parser <- add_argument(parser, 'plierDisease',
 parser <- add_argument(parser, 'outdir', help='The directory to print results to', type='character')
 parser <- add_argument(parser, '-k', help='The number of PLIER PCs to use', 
 					   type='numeric')
+parser <- add_argument(parser, '--noNorm',
+					   help='If this flag is passed, do not normalize the gene expression data',
+					   flag=TRUE)
 args <- parse_args(parser)
 
 # Set the random seed
@@ -59,7 +62,13 @@ all.matrix <- as.matrix(all.df)
 # https://github.com/greenelab/multi-plier/blob/master/util/plier_util.R 
 # Keep only genes found in both the id matrix and the prior knowlege gene sets
 common.genes <- PLIER::commonRows(all.matrix, allPaths)
-row.normalized <- PLIER::rowNorm(all.matrix)
+row.normalized <- all.matrix
+
+if (! args$noNorm){
+	print('Row normalizing the data')
+	row.normalized <- PLIER::rowNorm(all.matrix)
+
+}
 
 k.estimate = NULL
 out.dir <- args$outdir
