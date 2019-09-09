@@ -1,3 +1,5 @@
+'''Normalize each study in the datasets provided so that each of their genes has a mean of 0 and
+a standard deviation of 1'''
 import argparse
 
 import numpy
@@ -133,7 +135,9 @@ def get_expression_df(healthy_file_path, disease_file_path):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Normalize each study in the datasets provided '
+                                     'so that each of their genes has a mean of 0 and '
+                                     'a standard deviation of 1')
     parser.add_argument('healthy_data', help='The path to a tsv file containing healthy gene '
                                              'expression data')
     parser.add_argument('disease_data', help='The path to a tsv file containing unhealthy gene '
