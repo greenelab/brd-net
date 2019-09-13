@@ -10,32 +10,32 @@ library('biomaRt')
 # Github dependencies
 # Install PLIER if it isn't already present
 if (!require('PLIER',character.only = TRUE)) {
-	library('devtools')
-	tryCatch({
-		install_github('wgmao/PLIER')
-	},
-	error=function(e){
-		# For some reason devtools struggles to find the tar installation, this should fix it
-		Sys.setenv(TAR = "/bin/tar")
-		install_github('wgmao/PLIER')
-	})
+    library('devtools')
+    tryCatch({
+        install_github('wgmao/PLIER')
+    },
+    error=function(e){
+        # For some reason devtools struggles to find the tar installation, this should fix it
+        Sys.setenv(TAR = "/bin/tar")
+        install_github('wgmao/PLIER')
+    })
 
 }
 library('PLIER')
 
 parser <- arg_parser('Run PLIER on gene expression data')
 parser <- add_argument(parser, 'plierHealthy',
-					   help='Path to a dataframe containing healthy gene expression data', 
-					   type='character')
+                       help='Path to a dataframe containing healthy gene expression data', 
+                       type='character')
 parser <- add_argument(parser, 'plierDisease', 
-					   help='Path to a dataframe containing unhealthy gene expression data', 
-					   type='character')
+                       help='Path to a dataframe containing unhealthy gene expression data', 
+                       type='character')
 parser <- add_argument(parser, 'outdir', help='The directory to print results to', type='character')
 parser <- add_argument(parser, '-k', help='The number of PLIER PCs to use', 
-					   type='numeric')
+                       type='numeric')
 parser <- add_argument(parser, '--noNorm',
-					   help='If this flag is passed, do not normalize the gene expression data',
-					   flag=TRUE)
+                       help='If this flag is passed, do not normalize the gene expression data',
+                       flag=TRUE)
 args <- parse_args(parser)
 
 # Set the random seed
@@ -65,17 +65,17 @@ common.genes <- PLIER::commonRows(all.matrix, allPaths)
 row.normalized <- all.matrix
 
 if (! args$noNorm){
-	print('Row normalizing the data')
-	row.normalized <- PLIER::rowNorm(all.matrix)
+    print('Row normalizing the data')
+    row.normalized <- PLIER::rowNorm(all.matrix)
 
 }
 
 k.estimate = NULL
 out.dir <- args$outdir
 if (is.null(args$k)){
-	k.estimate <- PLIER::num.pc(row.normalized[common.genes, ])
+    k.estimate <- PLIER::num.pc(row.normalized[common.genes, ])
 } else{
-	k.estimate <- args$k
+    k.estimate <- args$k
 }
 
 plier.results <- PLIER(row.normalized[common.genes, ], allPaths, k=k.estimate)
